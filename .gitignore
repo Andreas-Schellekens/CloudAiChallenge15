@@ -14,6 +14,13 @@
 *.userosscache
 *.sln.docstates
 
+# Negeer alle inhoud van de SecondaryMushroom Data folder
+SecondaryMushroom/Data/*
+!SecondaryMushroom/Data/.gitkeep
+
+# Negeer alle inhoud van de NYCCitiBikeSystemData Data folder
+NYCCitiBikeSystemData/Data/*
+!NYCCitiBikeSystemData/Data/.gitkeep
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

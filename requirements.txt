@@ -1,0 +1,19 @@
+# Python 3.11.9 – install with: pip install -r requirements.txt
+
+# Notebooks
+ipykernel
+
+# Data & statistics
+pandas
+numpy
+scipy
+
+# Visualisation
+matplotlib
+seaborn
+
+# Machine learning
+# pycaret pinned: older 3.x versions don't cap scikit-learn and break on import.
+# 3.3.2 pulls in a compatible scikit-learn (1.4.x).
+pycaret==3.3.2
+scikit-learn

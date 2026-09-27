@@ -13,6 +13,8 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.env
+*.venv
 
 # Negeer alle inhoud van de SecondaryMushroom Data folder
 SecondaryMushroom/Data/*

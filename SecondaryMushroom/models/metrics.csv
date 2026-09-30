@@ -1,0 +1,4 @@
+model,notebook,threshold,accuracy,recall_poisonous,precision_poisonous,f1_poisonous,roc_auc,missed_poisonous,false_alarms
+naive (always edible),03_model_baseline,0.5,0.621,0.0,0.0,0.0,0.5,379,0
+logistic regression (balanced),03_model_baseline,0.5,0.674,0.5989445910290238,0.5660847880299252,0.5820512820512821,0.7097922747802292,152,174
+PyCaret random forest (default),04_model_automl,0.5,0.796,0.6094986807387863,0.8048780487804879,0.6936936936936937,0.8398425384200306,148,56

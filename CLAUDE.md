@@ -17,6 +17,7 @@ School project (Thomas More – Deep Learning / Cloud AI challenge, theme "Going
 - matplotlib 3.7: `ax.bar_label` crashes on zero-width bars, so label bars with `ax.text` instead.
 - `nbconvert`/`nbclient` are not installed. To execute a notebook headlessly, drive a kernel with `jupyter_client` (available through ipykernel), or run it in VS Code/Jupyter.
 - On Windows, joblib prints a harmless `[WinError 2] … physical cores` warning (no `wmic`). Set `LOKY_MAX_CPU_COUNT` to silence it.
+- LightGBM 4.7 crashes (`OSError: access violation reading 0x0000000000000000`) in any process where PyCaret was imported first (native library conflict). Fix: `import lightgbm` before `pycaret`, and `setup(..., n_jobs=1)` so CV folds don't run in worker processes (which import PyCaret first).
 
 ## Conventions (from the assignment)
 
@@ -24,8 +25,9 @@ School project (Thomas More – Deep Learning / Cloud AI challenge, theme "Going
 - Every notebook starts with one short markdown cell: the title, a one-line `**Worked on by:** name (what they did)` and a `> **GenAI disclosure:**` quote. No tables, table of contents or input/output overview in the header; keep it streamlined. Every code cell gets a markdown cell above it explaining what it does and why, because team members are examined orally on the code.
 - Keep only code that supports the story. Explain decisions, including paths not taken.
 - Data files are not committed (`*/Data/*` is git-ignored except `.gitkeep`). Citi Bike data must be downloaded and assembled by code, never manually.
-- Model pickles over 100 MB must not be committed.
+- Model pickles over 100 MB must not be committed. Large pickles that a notebook regenerates and that are not needed for deployment are git-ignored too (currently `SecondaryMushroom/models/mushroom_pycaret_rf.pkl`); small deployable pipelines (`*.joblib`) are committed.
 - Notebook prose is in English.
+- No emojis anywhere (notebooks, READMEs, comments): use plain words, e.g. "Done" / "Planned" in status tables.
 
 ## Status
 
@@ -39,13 +41,19 @@ School project (Thomas More – Deep Learning / Cloud AI challenge, theme "Going
   - `cap_diameter` ↔ `stem_width` Spearman correlation is 0.85 → consider model-based imputation.
   - Categoricals are individually weak (Cramér's V ≤ 0.23). Keep outliers (plausible sizes).
   - Diagnostic HistGradientBoosting gets ~79% out-of-fold accuracy; ~2% of rows are suspected label noise.
+  - Open cosmetic issues: the saved output of the class-distribution plot (section 3) has no image, and the label-noise cell (section 9) shows the loky `[WinError 2]` traceback because the notebook doesn't set `LOKY_MAX_CPU_COUNT`. Fix both on the next re-run.
 - `02_data_preparation.ipynb` is done (first version) and implements the EDA decision table. Outputs: `Data/mushroom_cleaned.csv` (numerical NaN kept, `split` column), `Data/mushroom_prepared_{train,test}.csv` (target `is_poisonous`, key `row_id`), `models/mushroom_preprocessor.joblib`.
   - One fixed stratified 80/20 split (`random_state=42`): 4000 train / 1000 test. All model notebooks must use it and never re-split. Use the prepared train/test CSVs for scikit-learn models, and filter `mushroom_cleaned.csv` on the `split` column for PyCaret/AutoML and SageMaker. Tuning and experiments (e.g. removing suspected label noise) use CV inside train only; the test set is touched only for the final evaluation.
   - Stemless rule: `has_stem` comes from stem height/width **and** `stem_surface = none` (never contradict). For stemless rows, missing measures are set to 0 and missing surface to `none`.
   - Preprocessor (fit on train): median → `log1p` → StandardScaler; one-hot with `min_frequency=10` (30 would merge near-pure categories); `has_stem` most-frequent.
   - 16 feature-level duplicates (look-alike rows, no label conflicts) are kept on purpose.
   - Random forest CV on train: dropping noise gives about +1.5 pt accuracy and +5 pt poisonous recall. Poisonous recall is only about 0.52 at threshold 0.5, so tune the threshold or class weights when modelling.
-- **Next:** `03_model_baseline.ipynb`.
+- `03_model_baseline.ipynb` is done (first version). Balanced logistic regression (chosen over unweighted by 5-fold CV on train: poisonous recall 0.36 → 0.58, same ROC-AUC 0.70). Test: accuracy 0.67, poisonous recall 0.60, ROC-AUC 0.71; naive floor 0.62 accuracy. Coefficients match the EDA's near-pure categories; linear is too weak (RF reference AUC ≈ 0.83).
+  - `models/mushroom_baseline.joblib` = fitted preprocessor + model in one `Pipeline`; takes the cleaned, readable columns (as in `mushroom_cleaned.csv`). The preprocessor outputs a NumPy array, so fit sklearn models on `X_train.to_numpy()` when they go into a deploy pipeline (otherwise sklearn warns about feature names; `set_output(transform="pandas")` on the loaded preprocessor also warns, because its scaler was fitted without names). The API must still apply the cleaning from data prep sections 2–5 (code maps, stem rule, `"missing"`).
+  - `models/metrics.csv` is the shared test-metrics file: every model notebook replaces its own rows (key `notebook`) with columns `model, notebook, threshold, accuracy, recall_poisonous, precision_poisonous, f1_poisonous, roc_auc, missed_poisonous, false_alarms`. Reuse the `test_metrics` helper from 03.
+  - `test_metrics` classifies `p >= threshold` as poisonous (ties go to the safe side). Random forests produce exact 0.5 ties (12 test rows), so scikit-learn's `predict` / PyCaret's `prediction_label` / `plot_model(confusion_matrix)` give slightly different counts; always derive labels and plots from the probabilities.
+- `04_model_automl.ipynb` is done (first version). PyCaret `setup` on the cleaned train rows with `test_data` = our test rows (median imputation, Yeo-Johnson, normalize, 5-fold stratified). CV AUC: RF 0.825, LightGBM 0.809, ExtraTrees 0.792, KNN 0.758, linear ≈ 0.69. PyCaret's `tune_model` makes RF worse (AUC 0.76, recall 0.32; its search space caps `max_depth` at 11 and `min_samples_leaf` ≥ 2); soft blend of the top 3 adds nothing. Chosen: default RF. Test: accuracy 0.796, recall 0.61, precision 0.81, AUC 0.84, 148 missed / 56 false alarms. Sizes dominate RF feature importance. Saved as `models/mushroom_pycaret_rf.pkl` (17 MB, git-ignored, not finalized, not for deployment).
+- **Next:** `05_model_*.ipynb`: tune RF and gradient boosting with own search spaces (include deep trees), choose the decision threshold by CV for high poisonous recall, test the open data-prep questions.
 
 ### NYCCitiBikeSystemData
 - Only a download script so far (`Download/download_citibike.py`). EDA not started.

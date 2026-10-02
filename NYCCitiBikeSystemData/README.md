@@ -34,7 +34,7 @@ downloaded=0 dry_run=no` (status `ok`, `dry_run` or `error`). Exit codes: 0 = su
 line says what to do; usually just run it again), 2 = invalid arguments. `python NYCCitiBikeSystemData/00_download_citibike.py --help`
 shows all options and these rules.
 
-## Folder layout after step 00
+## Folder layout after step 00 and `01a`
 
 ```
 Data/
@@ -44,7 +44,10 @@ Data/
 │   │   └── Origineel/201306-citibike-tripdata.csv   unsplit copy of the same trips (2013 and 2018 only)
 │   └── ...
 ├── ...
-└── 2026-citibike-tripdata/8_August/202608-citibike-tripdata_1.csv
+├── 2026-citibike-tripdata/8_August/202608-citibike-tripdata_1.csv
+└── parquet/                                    made by 01a_eda_data_quality.ipynb (about 10 GB)
+    ├── trips/trips_2013-06.parquet ...         all trips in one harmonised schema, one file per month
+    └── removed_duplicates.parquet              the 531 duplicate copies that were removed (for tracing)
 ```
 
 Read the CSVs **directly inside** the month folders. The `Origineel/` subfolders hold the same trips a second time
@@ -58,13 +61,30 @@ Read the CSVs **directly inside** the month folders. The `Origineel/` subfolders
 | 2016-10 to 2017-03 | the same 15 columns in Title Case (`Trip Duration, Start Time, ...`) |
 | 2020-01 onwards | `ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual` |
 
-These still have to be harmonised before the analysis (planned in the data-preparation notebook).
+`01a_eda_data_quality.ipynb` harmonises them into one schema and stores the result as Parquet in `Data/parquet/trips/`
+(see the notebook, section 3, for the column mapping). All later notebooks read the trips with DuckDB:
+
+```python
+import duckdb
+con = duckdb.connect()
+con.execute("CREATE VIEW trips AS SELECT * FROM read_parquet('Data/parquet/trips/*.parquet')")
+con.sql("SELECT user_type, count(*) FROM trips GROUP BY ALL").df()
+```
+
+## Running `01a_eda_data_quality.ipynb`
+
+Run it from the `NYCCitiBikeSystemData/` folder after step 00. The first run converts all CSVs to Parquet (about
+10 GB extra disk space) and takes about 19 minutes; later runs skip months that are already converted (about 15
+minutes). DuckDB downloads its `icu` extension (time zones) the first time. To rebuild the Parquet layer, delete
+`Data/parquet/` and run the notebook again. The cleaning rules for the data-preparation notebook are in its sections
+7.5 and 9.
 
 ## Notebooks
 
 | # | Notebook | Content | Status |
 |---|---|---|---|
 | 00 | `00_download_citibike.py` | Download, unpack and assemble the data | Done |
-| 01 | `01_eda*.ipynb` | Exploratory data analysis, aggregations, hypothesis | Planned |
+| 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules, first overview with graphs, decisions for the data preparation | Done |
+| 01b, 01c | `01b_eda_patterns.ipynb`, `01c_eda_hypothesis.ipynb` | Patterns over time, users, bikes and stations; testable hypothesis | Planned |
 | 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

@@ -33,8 +33,8 @@ CloudAiChallenge15/
 └── NYCCitiBikeSystemData/
     ├── README.md                 data layout, CSV formats, how to get the data
     ├── 00_download_citibike.py   step 00: download, unpack and assemble the data (see section 6.2)
-    ├── Data/                     git-ignored, about 62 GB of trip CSVs once assembled
-    └── test.txt                  empty placeholder (can be removed once real files exist)
+    ├── 01a_eda_data_quality.ipynb   EDA phase 1: Parquet layer, completeness, data quality, overview, decisions (6.4)
+    └── Data/                     git-ignored: about 61 GB of trip CSVs + Data/parquet/ (about 10 GB)
 ```
 
 There is no `deploy/` folder yet (the mushroom README mentions it as planned).
@@ -42,21 +42,25 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
 ## 3. Environment and tooling
 
 - Windows 11, Python **3.11.9** in `.venv` (git-ignored). Create with `py -3.11 -m venv .venv`, then `.venv\Scripts\pip install -r requirements.txt`. Use `.venv/Scripts/python.exe` explicitly from bash.
-- Installed versions that matter: pycaret 3.3.2, scikit-learn 1.4.2, pandas 2.1.4, numpy 1.26.4, scipy 1.11.4, matplotlib 3.7.5, seaborn 0.13.2, lightgbm 4.7.0, joblib 1.3.2, ipykernel 7.3, jupyter_client 8.10, nbformat 5.11.
+- Installed versions that matter: pycaret 3.3.2, scikit-learn 1.4.2, pandas 2.1.4, numpy 1.26.4, scipy 1.11.4, matplotlib 3.7.5, seaborn 0.13.2, lightgbm 4.7.0, joblib 1.3.2, ipykernel 7.3, jupyter_client 8.10, nbformat 5.11, duckdb 1.5.6, pyarrow 25.0.1, statsmodels 0.15.
 - `pycaret==3.3.2` is pinned on purpose: older 3.x versions don't cap scikit-learn, and pip then installs an incompatible one (e.g. 1.9 → `ImportError: _print_elapsed_time`). Because of this pin, scikit-learn is 1.4: there is **no** `TunedThresholdClassifierCV` (thresholds are chosen by hand, see 5.3).
-- Not installed: `nbconvert`, `nbclient`, XGBoost, CatBoost, `sagemaker`/`boto3`, any web framework. Add packages to `requirements.txt` when you introduce them.
+- Not installed: `nbconvert`, `nbclient`, polars, XGBoost, CatBoost, `sagemaker`/`boto3`, any web framework. Add packages to `requirements.txt` when you introduce them.
 - Known pitfalls:
   - matplotlib 3.7: `ax.bar_label` crashes on zero-width bars; label bars with `ax.text` instead.
   - Windows/joblib prints a harmless `[WinError 2] ... physical cores` warning. Every notebook sets `os.environ.setdefault("LOKY_MAX_CPU_COUNT", "4")` before importing scikit-learn.
   - LightGBM 4.7 crashes (`OSError: access violation reading 0x0000000000000000`) in any process where PyCaret was imported first. Fix: `import lightgbm` before `pycaret`, and `setup(..., n_jobs=1)` so CV folds don't run in worker processes.
   - Printing notebook text from Python on Windows fails on characters like `→` (cp1252). Set `PYTHONIOENCODING=utf-8`.
+  - Charts in the Citi Bike notebooks use one style defined in the setup cell of `01a` (`INK_*` colours, `plt.rcParams`, the `DIVERGING` red-grey-blue colormap; formats coloured blue / orange / aqua). Reuse it in `01b`/`01c` so the notebooks look alike.
+  - DuckDB in a notebook: run `con.execute("SET enable_progress_bar = false")`, otherwise queries write progress widgets into the outputs. `first`, `last`, `name` and `months` are reserved words in DuckDB SQL; don't use them as column aliases.
+  - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
+- Approximate run times (Citi Bike): `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
 
-- Notebooks are numbered in run order per dataset: `01_eda`, `02_data_preparation`, `03_model_baseline`, `04_model_automl`, `05a/05b/05c_model_*`, `06_model_aws`, `07_model_comparison`.
+- Notebooks are numbered in run order per dataset: `01_eda`, `02_data_preparation`, `03_model_baseline`, `04_model_automl`, `05a/05b/05c_model_*`, `06_model_aws`, `07_model_comparison`. The Citi Bike EDA is split in three: `01a_eda_data_quality`, `01b_eda_patterns`, `01c_eda_hypothesis`; its step 00 is the script `00_download_citibike.py`.
 - Every notebook starts with **one** short markdown cell: the title (`# 0X – Title: Dataset`), one line `**Worked on by:** name (what they did)` and a `> **GenAI disclosure:** ...` quote. No tables, table of contents or input/output overview in the header.
 - Every code cell has a markdown cell above it explaining what it does and **why** (oral exam). Interpretation cells after results quote the actual numbers; when results change after a re-run, update the text, never leave stale numbers.
 - Explain decisions, including paths not taken and experiments that did not help. Report honestly when a result contradicts an earlier claim.
@@ -172,7 +176,10 @@ Observations to keep in mind: the test set is a little easier than the validatio
 
 ### 6.1 Status
 
-Step 00 (getting the data) is done: `00_download_citibike.py`. No EDA, hypothesis, preparation, model or deployment yet. This is the biggest risk for the deadline.
+- Step 00 (getting the data) is done: `00_download_citibike.py`.
+- `01a_eda_data_quality.ipynb` (EDA phase 1) is done (2 October 2026), all five steps: harmonised schema, Parquet layer, duplicate removal and conversion checks (notebook sections 1-5, summarised in 6.4 below), completeness over time (section 6), data quality per column with nine cleaning rules (section 7), a first overview with graphs (section 8) and the table of 15 decisions for the data-preparation notebook plus paths not taken (section 9). The work is on branch `citibike-eda-phase1` (pushed, not merged into `main` on the user's request).
+- No pattern EDA, hypothesis, preparation, model or deployment yet. This is the biggest risk for the deadline.
+- Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
 
@@ -191,9 +198,9 @@ Details:
 - Archive quirks it handles: 2013 and 2018 contain every month twice (split parts in the month folders plus an unsplit CSV in the year folder); the unsplit copy goes to `<month>/Origineel/`. 2018 also contains the April parts twice; exact duplicates are stored once. 2017 parts are named `YYYYMM-citibike-tripdata.csv_1.csv` (kept as is).
 - Tested: a dry run recognises all 43 archives on Andreas's machine as complete; assembling 2013 and 2026-04 from scratch gives file names and sizes identical to Andreas's folders.
 - Andreas's data (assembled by hand before step 00 existed) was verified and tidied on 2 October 2026: all 280 files of 2013–2019 and 2024–2026 match the server sizes exactly, the 139 files of 2020–2023 (nested compressed zips, not size-checkable without downloading) all end with a complete last line. The two loose 2018 duplicates, the old helper scripts, the `.DS_Store` files and the empty 2013 January–May folders were removed, and the manifest was written. His `Data/` folder now has the same layout as a fresh run of step 00: 14 year folders, 419 CSVs (400 in month folders, 19 unsplit copies in `Origineel/`) and `.download_manifest.json`.
-- **Reading the data:** read only the CSVs directly inside the month folders, never `Origineel/` (same trips again). The full data does not fit in memory: sample or aggregate per month, and consider Parquet as the intermediate format.
+- **Reading the data:** new notebooks read the Parquet layer made by `01a` (section 6.4), not the CSVs. If CSVs must be read, read only those directly inside the month folders, never `Origineel/` (same trips again).
 
-### 6.3 Three CSV schemas (must be harmonised)
+### 6.3 Three CSV schemas (harmonised in `01a`, see 6.4)
 
 | Period | Header style | Columns |
 |---|---|---|
@@ -201,11 +208,34 @@ Details:
 | 2016-10 to 2017-03 | Title Case | same 15 columns, e.g. `Trip Duration, Start Time, ..., User Type, Birth Year, Gender` |
 | 2020-01 onwards | new system | `ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual` |
 
-Consequences: trip duration must be computed from start/end times in the new format; `usertype` (Subscriber/Customer) maps roughly to `member_casual` (member/casual); birth year and gender exist only in the old format; `rideable_type` (classic/electric bike) only in the new format; station ids changed format between the systems. Missing birth year is written as `\N` in 2013 files.
+Consequences (all handled in `01a`): trip duration must be computed from start/end times in the new format; `usertype` (Subscriber/Customer) maps roughly to `member_casual` (member/casual); birth year and gender exist only in the old format; `rideable_type` (classic/electric bike) only in the new format; station ids changed format between the systems. Missing birth year is written as `\N` in 2013 files.
 
-### 6.4 Next steps (Citi Bike)
+### 6.4 The harmonised Parquet layer (made by `01a_eda_data_quality.ipynb`)
 
-1. Harmonise the three schemas (data preparation; trip duration from start/end time for the new format) and decide on sampling or aggregation.
-2. EDA with statistical evidence and aggregations (e.g. trips per day/hour/season, member vs. casual, electric vs. classic, duration distributions, "going green" angle).
-3. At least one testable hypothesis, tested before modelling.
+- `NYCCitiBikeSystemData/Data/parquet/trips/trips_YYYY-MM.parquet`: one file per month (159 files, about 10 GB), **323,817,107 trips**, every trip once. Built from the CSVs directly in the month folders only. A month is converted only when its file is missing (written to `.tmp`, then renamed); to rebuild, delete `Data/parquet/` and re-run `01a`.
+- Read it with DuckDB: `con.execute("CREATE VIEW trips AS SELECT * FROM read_parquet('Data/parquet/trips/*.parquet')")` (path relative to `NYCCitiBikeSystemData/`). Do not load it into pandas as a whole; aggregate or sample in SQL.
+- Columns: `ride_id` (new only), `started_at`, `ended_at` (TIMESTAMP, local New York time, no time zone), `duration_s` (ended - started, all formats), `tripduration_s` (reported, old only), `start_station_id`, `start_station_name`, `start_lat`, `start_lng`, `end_station_id`, `end_station_name`, `end_lat`, `end_lng`, `user_type` (`member`/`casual`; old Subscriber/Customer mapped), `rideable_type` (new only), `bike_id`, `birth_year`, `gender` (old only; gender 0 unknown, 1 male, 2 female), `source_format` (`old`, `old_title_case`, `new`), `source_month` (DATE, month of the file), `source_file`.
+- Station ids are text. Old ids are whole numbers (`3359.0` was converted to `3359`). New ids always have two decimals: a share of the rows in every month since 2020 wrote `5024.1` for `5024.10`; the conversion adds the zero back (verified with the station names).
+- Timestamp shapes parsed: ISO with 0, 3 or 4 decimals, `M/D/YYYY HH:MM:SS` (2014-09 to 2016-09), `M/D/YYYY H:MM` (2015-01 to 2015-06, no seconds). 0 unparsed timestamps.
+- Duplicates removed (key: `ride_id`, or `bike_id` + `started_at` for the old system; keep the copy in the file of the start month, then the one with the earliest end): 512 trips of 30 April 2026 that are also in the May 2026 files, 1 trip of 2013-07-01 00:00:00 in both the June and July 2013 files, 18 pairs inside one old file (same rental logged twice). The removed copies are in `Data/parquet/removed_duplicates.parquet`; for every file, CSV lines = Parquet rows + removed copies.
+- **Count trips by `started_at`, never by `source_month`:** the old system files a trip by its start month, the new system (2020+) by its **end** month (except April 2026, filed by start month, which caused the April/May duplicates). 45,871 new trips started before their file month: 38,799 on the evening before the 1st, 7,072 more than a day earlier (durations of weeks to over a year, median about 32 days; all removed by rule D2). Trips that start on 31 August 2026 and end in September are not published yet.
+- **Completeness (01a section 6):** every month and every day from 2013-06-01 to 2026-08-31 has trips, except 10 days with zero trips: 2016-01-23 to 26, 2017-02-09, 2017-03-14 to 16, 2021-02-02, 2026-02-23 (winter storms; the day after is always far below normal; to be confirmed with weather data). Biggest year-on-year drops: April 2020 -61% (COVID-19), February 2021 -45%, February 2026 -40%. Trips per year by start: 8.1 million (2014) to 45.8 million (2025); January-August 2026 equals January-August 2025 (30.2 million).
+- **Cleaning rules (01a section 7.5)**, to be applied in the Citi Bike data-preparation notebook, not in the Parquet files:
+  - D1 duration: old system `tripduration_s` (the computed difference is minute-rounded in 2015-01..06 and 1 hour off across daylight-saving changes); new system the time-zone-aware difference (`timezone('America/New_York', ...)`, DuckDB `icu` extension) plus 3600 s when still negative (the repeated 01:00-01:59 hour on the November change). Corrects about 1.7 million durations; no negatives remain. The SQL is `CORRECTED_DURATION` in 01a.
+  - D2 remove trips over 24 h (156,916; lost/stolen bikes; since 2024 the system closes rentals after about 26 h).
+  - S1 keep trips without a station; skip trips without any end location (607,626: no end station and no end coordinates) in end-station, route and duration analyses.
+  - S2 coordinates outside lat 40.4-41.0 / lng -74.3 to -73.6 (0,0, Montreal and Los Angeles test stations) to NULL.
+  - S3 remove trips from/to non-public stations (regex `NON_PUBLIC` in 01a: depots, workshops, test/lab/demo stations; about 23,000 trips). Valet stations stay.
+  - R1 remove round trips under 3 minutes (1.68 million; re-docks: 31% of 1-minute trips are round trips against a 1% baseline from 4 minutes).
+  - U1 empty user type (51,780, 2016-10..2017-03) stays unknown; U2 gender 0 to NULL (9.4 million); U3 birth year before 1920 or 1969 with gender 0 (the system's default, mainly 2018-2019) to NULL (2.8 million).
+  - Together the remove rules drop 0.58% of the trips; about 322 million remain.
+- Other facts from 01a section 7: no trip under 60 s in the published data (Citi Bike removes them); median trip about 10 minutes in both systems; only `classic_bike` and `electric_bike` occur as bike types.
+- 01a section 8 defines the view `clean_trips` (the remove rules D2, S3, R1 applied on the fly, plus the corrected `duration`): 321,939,739 trips. Reuse that SQL in `01b`/`01c` until the data-preparation notebook writes a cleaned dataset. Overview findings (2025 unless stated): working days have rush-hour peaks at 08:00 (7.7% of the day's trips) and 17:00 (9.9%), weekends one broad afternoon hump; Tuesday-Friday about 128,000-134,000 trips a day, Sunday about 107,000; casual share 10-14% until 2019, 27% in 2021, 17-19% since 2023, seasonal (9.5% in January/February, 22.5% in August); casual trips 18.7 min vs. member 11.1 min on average; electric bikes 14% of trips in 2020, 70.5% in 2025 (dips to about 20% mid-2021 and about 40% spring 2023), average trip as long as a classic one (12.2 vs. 12.7 min); stations 334 (2013) to 2,244 (2025), the busiest 10% have 38% of the trips (top: W 21 St & 6 Ave, Pier 61 at Chelsea Piers).
+- Known issues still to analyse: 86,482 electric-bike trips without start station and mostly without start coordinates (origin unclear, kept); birth year missing for about 6.2 million old trips (96% casual).
+
+### 6.5 Next steps (Citi Bike)
+
+1. `01a` is done. If `01b` needs row-level plots, add a fixed, seeded sample (e.g. 1% per month) of `clean_trips`.
+2. `01b_eda_patterns.ipynb`: EDA with statistical evidence and aggregations (e.g. trips per day/hour/season, member vs. casual, electric vs. classic, duration distributions, "going green" angle).
+3. `01c_eda_hypothesis.ipynb`: at least one testable hypothesis, tested before modelling. Candidate prediction targets: daily demand (with weather), member vs. casual, trip duration.
 4. Data-preparation notebook, then the same model sequence as the mushrooms (baseline, PyCaret, tuned models, AWS model, comparison) and a deployment. Reuse the mushroom protocol ideas (fixed split, validation for choices, test once, shared metrics file).

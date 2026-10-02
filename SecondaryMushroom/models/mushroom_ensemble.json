@@ -1,0 +1,37 @@
+{
+  "model": "ensemble (stack: forest + boosting)",
+  "notebook": "05c_model_ensemble",
+  "method": "stack",
+  "members": [
+    "random forest",
+    "gradient boosting"
+  ],
+  "threshold": 0.1298,
+  "threshold_rule": "highest threshold with recall (poisonous) >= 0.9 on the validation set",
+  "cv_roc_auc": 0.8381,
+  "validation_roc_auc": 0.8206,
+  "knn_hyperparameters": {
+    "n_neighbors": 15,
+    "weights": "distance"
+  },
+  "input_columns": [
+    "cap_diameter",
+    "stem_height",
+    "stem_width",
+    "has_stem",
+    "spore_print_color",
+    "gill_color",
+    "habitat",
+    "season",
+    "ring_type",
+    "cap_shape",
+    "stem_surface"
+  ],
+  "meta_learner": {
+    "intercept": -2.9278,
+    "weights": {
+      "random forest": 4.2244,
+      "gradient boosting": 2.102
+    }
+  }
+}

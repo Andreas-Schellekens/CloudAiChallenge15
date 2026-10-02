@@ -1,16 +1,17 @@
 {
   "model": "random forest (tuned)",
   "notebook": "05a_model_random_forest",
-  "threshold": 0.2662,
-  "threshold_rule": "highest threshold with out-of-fold recall (poisonous) >= 0.9 on the training set",
-  "cv_roc_auc": 0.8355,
+  "threshold": 0.1613,
+  "threshold_rule": "highest threshold with recall (poisonous) >= 0.9 on the validation set",
+  "cv_roc_auc": 0.8375,
+  "validation_roc_auc": 0.8168,
   "hyperparameters": {
     "class_weight": "balanced_subsample",
-    "criterion": "entropy",
-    "max_depth": 30,
-    "max_features": 0.3,
-    "max_samples": null,
-    "min_samples_leaf": 3,
+    "criterion": "gini",
+    "max_depth": null,
+    "max_features": "sqrt",
+    "max_samples": 0.9,
+    "min_samples_leaf": 1,
     "n_estimators": 800
   },
   "input_columns": [

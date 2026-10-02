@@ -76,7 +76,7 @@ con.sql("SELECT user_type, count(*) FROM trips GROUP BY ALL").df()
 | # | Notebook | Content | Status |
 |---|---|---|---|
 | 00 | `00_download_citibike.py` | Download, unpack and assemble the data | Done |
-| 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time (done); data-quality checks per column and first overview (planned) | In progress |
+| 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules (done); first overview with graphs and final decision table (planned) | In progress |
 | 01b, 01c | `01b_eda_patterns.ipynb`, `01c_eda_hypothesis.ipynb` | Patterns over time, users, bikes and stations; testable hypothesis | Planned |
 | 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

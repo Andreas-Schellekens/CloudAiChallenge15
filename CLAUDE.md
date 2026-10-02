@@ -31,8 +31,9 @@ CloudAiChallenge15/
 │   │   └── test/        mushroom_cleaned_test.csv, mushroom_prepared_test.csv
 │   └── models/                   fitted pipelines (.joblib), thresholds (.json), metrics.csv
 └── NYCCitiBikeSystemData/
-    ├── Download/download_citibike.py   download script (needs rework, see section 6)
-    ├── Data/                     git-ignored, about 62 GB of trip CSVs on Andreas's machine
+    ├── README.md                 data layout, CSV formats, how to get the data
+    ├── 00_download_citibike.py   step 00: download, unpack and assemble the data (see section 6.2)
+    ├── Data/                     git-ignored, about 62 GB of trip CSVs once assembled
     └── test.txt                  empty placeholder (can be removed once real files exist)
 ```
 
@@ -171,13 +172,26 @@ Observations to keep in mind: the test set is a little easier than the validatio
 
 ### 6.1 Status
 
-Barely started: only `Download/download_citibike.py` is in git. No EDA, hypothesis, preparation, model or deployment yet. This is the biggest risk for the deadline.
+Step 00 (getting the data) is done: `00_download_citibike.py`. No EDA, hypothesis, preparation, model or deployment yet. This is the biggest risk for the deadline.
 
-### 6.2 Data on Andreas's machine (git-ignored, not reproducible yet)
+### 6.2 Getting the data: `00_download_citibike.py`
 
-- `NYCCitiBikeSystemData/Data/<year>-citibike-tripdata/<m>_<Month>/` for 2013 (data from June; the January–May folders exist but are empty) up to 2026 (up to August); about 62 GB, about 400 CSV files. Years were downloaded as zips from `https://s3.amazonaws.com/tripdata/` (yearly zips for 2013–2023, monthly zips from 2024) and split into parts named `YYYYMM-citibike-tripdata_1.csv`, `_2.csv`, ... (up to `_6`). Exception: `2026-citibike-tripdata/4_April/` uses `-1.csv` ... `-4.csv` (hyphen). The 2013 and 2018 month folders also contain an `Origineel/` subfolder with the unsplit original CSV (duplicate data, must not be read twice).
-- Four helper scripts live **inside the git-ignored `Data/` folder** (`move_zips.py`, `original.py`, `sort_citibike.py`, `sort_months.py`). They were used to sort files manually, use a hard-coded Windows path to Andreas's machine, and print emojis. They do not meet the "assembled by code, reproducibly" requirement and must be replaced by a committed, path-independent script or notebook.
-- `download_citibike.py` saves to `~/Downloads/output` instead of the repo, does not unzip and does not assemble. It needs to download into `NYCCitiBikeSystemData/Data/`, unzip, and combine the files reproducibly (consider sampling or aggregating: the full data is far too large to load at once; Parquet is a good intermediate format).
+**How an agent runs it** (needs Python 3.8+ and internet; only the standard library; never asks for input):
+1. `.venv/Scripts/python.exe NYCCitiBikeSystemData/00_download_citibike.py --dry-run` (a few seconds). Read the `Plan:` line (archives to assemble, GB to download, GB free) and the last line, `SUMMARY status=dry_run archives=.. already_assembled=.. ...`. If `already_assembled` equals `archives`, the data is complete: stop.
+2. Check with the user before a large download (a full run is about 32 GB download and 62 GB on disk, tens of minutes to hours). Prefer a limited period with `--from`/`--to` when the task allows it.
+3. Run the same command without `--dry-run` **in the background** (e.g. Bash `run_in_background`) and wait for it to exit; output is line-buffered, so progress can be read from the log.
+4. Check the result by the exit code and the last line: exit 0 + `SUMMARY status=ok` = done. Exit 1 + `SUMMARY status=error` = network, disk or archive problem; the `ERROR:` line says what to do, and re-running the same command is always safe (finished archives are skipped, downloads resume). Exit 2 = invalid arguments.
+5. Do not use `--remove-duplicates` (it deletes files) or delete anything in `Data/` without the user's consent.
+
+Details:
+- Run from anywhere: `python NYCCitiBikeSystemData/00_download_citibike.py` (all data), `--from 2019 --to 2020` or `--from 2025-06` (periods as `YYYY` or `YYYY-MM`), `--dry-run` (show the plan only). Other options: `--search-dir` (extra folder with already downloaded zips), `--keep-zips`, `--remove-duplicates`, `--data-dir`. Only the Python standard library is used.
+- It reads the archive list from the S3 bucket `https://s3.amazonaws.com/tripdata/` (yearly zips 2013–2023, monthly zips from 2024, about 32 GB zipped; `JC-...` Jersey City files are skipped), so new months are picked up automatically.
+- No double downloads: an archive is skipped when `Data/.download_manifest.json` marks it complete, or (for data assembled before the script existed) when its month folders already contain CSVs. Otherwise a local zip with the exact server size is reused (`Data/zip/`, `Data/`, `~/Downloads/output`, `~/Downloads`, `--search-dir`); otherwise it downloads to `Data/zip/` with resume support. An archive is marked "incomplete" in the manifest before unpacking, so an interrupted unpack is redone.
+- Unpacking: every CSV (and every zip nested inside the 2020–2023 yearly archives) is extracted to the short staging folder `Data/_unpacking/<n>/` (Windows' 260-character path limit), macOS junk is skipped, and every CSV is moved to `Data/<year>-citibike-tripdata/<m>_<Month>/` by the `YYYYMM` at the start of its name. `-partN.csv` names (2026-04) become `-N.csv`. Zips in `Data/zip/` are deleted after unpacking unless `--keep-zips`.
+- Archive quirks it handles: 2013 and 2018 contain every month twice (split parts in the month folders plus an unsplit CSV in the year folder); the unsplit copy goes to `<month>/Origineel/`. 2018 also contains the April parts twice; exact duplicates are stored once. 2017 parts are named `YYYYMM-citibike-tripdata.csv_1.csv` (kept as is).
+- Tested: a dry run recognises all 43 archives on Andreas's machine as complete; assembling 2013 and 2026-04 from scratch gives file names and sizes identical to Andreas's folders.
+- Andreas's existing data has two loose duplicates in the 2018 year folder (`201804-citibike-tripdata_1.csv`, `_2.csv`, identical to the files in `4_April/`); `--remove-duplicates` deletes them. The old helper scripts in the git-ignored `Data/` folder (`move_zips.py`, `original.py`, `sort_citibike.py`, `sort_months.py`) are replaced by step 00 and can be deleted.
+- **Reading the data:** read only the CSVs directly inside the month folders, never `Origineel/` (same trips again). The full data does not fit in memory: sample or aggregate per month, and consider Parquet as the intermediate format.
 
 ### 6.3 Three CSV schemas (must be harmonised)
 
@@ -191,7 +205,7 @@ Consequences: trip duration must be computed from start/end times in the new for
 
 ### 6.4 Next steps (Citi Bike)
 
-1. Reproducible download + unzip + assembly script/notebook (committed, relative paths, no emojis) that also harmonises the schemas.
+1. Harmonise the three schemas (data preparation; trip duration from start/end time for the new format) and decide on sampling or aggregation.
 2. EDA with statistical evidence and aggregations (e.g. trips per day/hour/season, member vs. casual, electric vs. classic, duration distributions, "going green" angle).
 3. At least one testable hypothesis, tested before modelling.
 4. Data-preparation notebook, then the same model sequence as the mushrooms (baseline, PyCaret, tuned models, AWS model, comparison) and a deployment. Reuse the mushroom protocol ideas (fixed split, validation for choices, test once, shared metrics file).

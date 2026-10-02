@@ -1,0 +1,29 @@
+{
+  "model": "random forest (tuned)",
+  "notebook": "05a_model_random_forest",
+  "threshold": 0.2662,
+  "threshold_rule": "highest threshold with out-of-fold recall (poisonous) >= 0.9 on the training set",
+  "cv_roc_auc": 0.8355,
+  "hyperparameters": {
+    "class_weight": "balanced_subsample",
+    "criterion": "entropy",
+    "max_depth": 30,
+    "max_features": 0.3,
+    "max_samples": null,
+    "min_samples_leaf": 3,
+    "n_estimators": 800
+  },
+  "input_columns": [
+    "cap_diameter",
+    "stem_height",
+    "stem_width",
+    "has_stem",
+    "spore_print_color",
+    "gill_color",
+    "habitat",
+    "season",
+    "ring_type",
+    "cap_shape",
+    "stem_surface"
+  ]
+}

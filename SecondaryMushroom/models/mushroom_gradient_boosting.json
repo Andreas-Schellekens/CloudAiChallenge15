@@ -1,0 +1,30 @@
+{
+  "model": "gradient boosting (tuned)",
+  "notebook": "05b_model_gradient_boosting",
+  "threshold": 0.1606,
+  "threshold_rule": "highest threshold with out-of-fold recall (poisonous) >= 0.9 on the training set",
+  "cv_roc_auc": 0.8251,
+  "hyperparameters": {
+    "class_weight": null,
+    "l2_regularization": 1.5352246941973489,
+    "learning_rate": 0.01866188148138769,
+    "max_depth": null,
+    "max_features": 0.6774801263571897,
+    "max_leaf_nodes": 90,
+    "min_samples_leaf": 24
+  },
+  "n_trees": 307,
+  "input_columns": [
+    "cap_diameter",
+    "stem_height",
+    "stem_width",
+    "has_stem",
+    "spore_print_color",
+    "gill_color",
+    "habitat",
+    "season",
+    "ring_type",
+    "cap_shape",
+    "stem_surface"
+  ]
+}

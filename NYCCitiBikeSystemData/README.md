@@ -44,7 +44,10 @@ Data/
 │   │   └── Origineel/201306-citibike-tripdata.csv   unsplit copy of the same trips (2013 and 2018 only)
 │   └── ...
 ├── ...
-└── 2026-citibike-tripdata/8_August/202608-citibike-tripdata_1.csv
+├── 2026-citibike-tripdata/8_August/202608-citibike-tripdata_1.csv
+└── parquet/                                    made by 01a_eda_data_quality.ipynb (about 10 GB)
+    ├── trips/trips_2013-06.parquet ...         all trips in one harmonised schema, one file per month
+    └── removed_duplicates.parquet              the 531 duplicate copies that were removed (for tracing)
 ```
 
 Read the CSVs **directly inside** the month folders. The `Origineel/` subfolders hold the same trips a second time
@@ -58,13 +61,22 @@ Read the CSVs **directly inside** the month folders. The `Origineel/` subfolders
 | 2016-10 to 2017-03 | the same 15 columns in Title Case (`Trip Duration, Start Time, ...`) |
 | 2020-01 onwards | `ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual` |
 
-These still have to be harmonised before the analysis (planned in the data-preparation notebook).
+`01a_eda_data_quality.ipynb` harmonises them into one schema and stores the result as Parquet in `Data/parquet/trips/`
+(see the notebook, section 3, for the column mapping). All later notebooks read the trips with DuckDB:
+
+```python
+import duckdb
+con = duckdb.connect()
+con.execute("CREATE VIEW trips AS SELECT * FROM read_parquet('Data/parquet/trips/*.parquet')")
+con.sql("SELECT user_type, count(*) FROM trips GROUP BY ALL").df()
+```
 
 ## Notebooks
 
 | # | Notebook | Content | Status |
 |---|---|---|---|
 | 00 | `00_download_citibike.py` | Download, unpack and assemble the data | Done |
-| 01 | `01_eda*.ipynb` | Exploratory data analysis, aggregations, hypothesis | Planned |
+| 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks (step 1 done; data-quality checks and first overview planned) | In progress |
+| 01b, 01c | `01b_eda_patterns.ipynb`, `01c_eda_hypothesis.ipynb` | Patterns over time, users, bikes and stations; testable hypothesis | Planned |
 | 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

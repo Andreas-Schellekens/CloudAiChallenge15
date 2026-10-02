@@ -34,8 +34,7 @@ CloudAiChallenge15/
     ├── README.md                 data layout, CSV formats, how to get the data
     ├── 00_download_citibike.py   step 00: download, unpack and assemble the data (see section 6.2)
     ├── 01a_eda_data_quality.ipynb   EDA phase 1: Parquet layer, completeness, data quality, overview, decisions (6.4)
-    ├── Data/                     git-ignored: about 61 GB of trip CSVs + Data/parquet/ (about 10 GB)
-    └── test.txt                  empty placeholder (can be removed once real files exist)
+    └── Data/                     git-ignored: about 61 GB of trip CSVs + Data/parquet/ (about 10 GB)
 ```
 
 There is no `deploy/` folder yet (the mushroom README mentions it as planned).

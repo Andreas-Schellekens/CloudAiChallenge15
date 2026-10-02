@@ -34,7 +34,7 @@ downloaded=0 dry_run=no` (status `ok`, `dry_run` or `error`). Exit codes: 0 = su
 line says what to do; usually just run it again), 2 = invalid arguments. `python NYCCitiBikeSystemData/00_download_citibike.py --help`
 shows all options and these rules.
 
-## Folder layout after step 00
+## Folder layout after step 00 and `01a`
 
 ```
 Data/
@@ -71,12 +71,20 @@ con.execute("CREATE VIEW trips AS SELECT * FROM read_parquet('Data/parquet/trips
 con.sql("SELECT user_type, count(*) FROM trips GROUP BY ALL").df()
 ```
 
+## Running `01a_eda_data_quality.ipynb`
+
+Run it from the `NYCCitiBikeSystemData/` folder after step 00. The first run converts all CSVs to Parquet (about
+10 GB extra disk space) and takes about 19 minutes; later runs skip months that are already converted (about 15
+minutes). DuckDB downloads its `icu` extension (time zones) the first time. To rebuild the Parquet layer, delete
+`Data/parquet/` and run the notebook again. The cleaning rules for the data-preparation notebook are in its sections
+7.5 and 9.
+
 ## Notebooks
 
 | # | Notebook | Content | Status |
 |---|---|---|---|
 | 00 | `00_download_citibike.py` | Download, unpack and assemble the data | Done |
-| 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules (done); first overview with graphs and final decision table (planned) | In progress |
+| 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules, first overview with graphs, decisions for the data preparation | Done |
 | 01b, 01c | `01b_eda_patterns.ipynb`, `01c_eda_hypothesis.ipynb` | Patterns over time, users, bikes and stations; testable hypothesis | Planned |
 | 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

@@ -20,7 +20,9 @@ Machine Learning / Cloud AI challenge – theme "Going green".
 | [`SecondaryMushroom/`](SecondaryMushroom/) | Secondary Mushroom – predict edible vs. poisonous |
 | [`NYCCitiBikeSystemData/`](NYCCitiBikeSystemData/) | NYC Citi Bike trip data |
 
-Notebooks in each folder are numbered in the order they should be run.
+Notebooks in each folder are numbered in the order they should be run. The data is not in the repository: the
+mushroom CSV comes from the lecturer, and the Citi Bike data is downloaded by a script (see
+[`NYCCitiBikeSystemData/README.md`](NYCCitiBikeSystemData/README.md)).
 
 ## Setup
 

@@ -34,7 +34,7 @@ CloudAiChallenge15/
     ├── README.md                 data layout, CSV formats, how to get the data
     ├── 00_download_citibike.py   step 00: download, unpack and assemble the data (see section 6.2)
     ├── 01a_eda_data_quality.ipynb   EDA phase 1: Parquet layer, completeness, data quality, overview, decisions (6.4)
-    ├── 01b_eda_patterns.ipynb       EDA phase 2: weather effects (step 1 done), further patterns planned (6.5)
+    ├── 01b_eda_patterns.ipynb       EDA phase 2: weather effects, time patterns (steps 1-2 done), more planned (6.5)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB)
 ```
 
@@ -56,7 +56,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `01b` (step 1) about 40 s. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `01b` (steps 1-2) about 2.2 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -179,7 +179,7 @@ Observations to keep in mind: the test set is a little easier than the validatio
 
 - Step 00 (getting the data) is done: `00_download_citibike.py`.
 - `01a_eda_data_quality.ipynb` (EDA phase 1) is done (2 October 2026), all five steps: harmonised schema, Parquet layer, duplicate removal and conversion checks (notebook sections 1-5, summarised in 6.4 below), completeness over time (section 6), data quality per column with nine cleaning rules (section 7), a first overview with graphs (section 8) and the table of 15 decisions for the data-preparation notebook plus paths not taken (section 9). The work was done on branch `citibike-eda-phase1` and merged into `main` on 2 October 2026.
-- `01b_eda_patterns.ipynb` (EDA phase 2) is in progress on branch `citibike-eda-phase2`: step 1 (daily demand and the weather) is done; steps 2-5 (time patterns and holidays, bikes and distance, stations and flows, summary with hypotheses for `01c`) are planned. See 6.5.
+- `01b_eda_patterns.ipynb` (EDA phase 2) is in progress on branch `citibike-eda-phase2`: steps 1 (daily demand and the weather) and 2 (time patterns: weekdays, holidays, members vs. casual) are done; steps 3-5 (bikes and distance, stations and flows, summary with hypotheses for `01c`) are planned. See 6.5.
 - No hypothesis notebook, preparation, model or deployment yet. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
@@ -237,7 +237,7 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 
 ### 6.5 EDA phase 2: `01b_eda_patterns.ipynb`
 
-- Plan (agreed step by step with the user): 1. daily demand and the weather (done), 2. time patterns with evidence (weekday/weekend, holidays, members vs. casual), 3. bikes and distance (electric vs. classic, distance and speed from coordinates, "going green"), 4. stations and flows (routes, imbalance by time of day), 5. summary and candidate hypotheses for `01c`.
+- Plan (agreed step by step with the user): 1. daily demand and the weather (done, notebook section 2), 2. time patterns with evidence (done, section 3), 3. bikes and distance (electric vs. classic, distance and speed from coordinates, "going green"), 4. stations and flows (routes, imbalance by time of day), 5. summary and candidate hypotheses for `01c`.
 - Setup: same plot style as `01a`; `clean_trips` is defined with the same SQL as `01a` section 8 (copied, with `CORRECTED_DURATION`, `NON_PUBLIC`, `REMOVE_RULES`).
 - Weather: NOAA GHCN-Daily, Central Park station `USW00094728`, file `Data/weather/USW00094728.csv` (about 18 MB, whole station history), downloaded once by the notebook from `https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/USW00094728.csv` (no account). Units: PRCP tenths of mm, SNOW and SNWD mm, TMAX/TMIN tenths of degrees C, AWND tenths of m/s. Complete for 2013-06-01..2026-08-31 except snow depth (4 days) and wind (226 days). Path not taken: Open-Meteo (modelled grid values instead of station measurements).
 - Step 1 findings (daily cleaned trips, 4,840 days):
@@ -245,7 +245,13 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
   - Model: OLS on log(daily trips) with max temperature + its square, precipitation class (dry / light up to 2.5 mm / moderate 2.5-10 / heavy 10-25 / very heavy over 25), snow on the ground, weekday and `year_month` fixed effects (159 values: growth, season, COVID); Newey-West (HAC, 7 lags) standard errors; the 10 zero days left out. R-squared 0.905.
   - Effects against a dry day: light -9.7% (95% CI -11.4 to -7.9), moderate -23.3%, heavy -37.9%, very heavy -54.1%, snow on the ground -24.3%. Temperature against 20 degrees: 0 degrees -56%, 10 degrees -27%, peak at about 32 degrees (+14%). Wind (robustness, 4,604 days) -4.0% per m/s; rain effects unchanged.
   - Casual riders are more weather-sensitive than members (separate models): heavy rain -51% vs. -36%, very heavy -69% vs. -52%, snow on the ground -38% vs. -24%, 0 instead of 20 degrees -80% vs. -52%; the rain and temperature intervals do not overlap. Candidate hypothesis for `01c`.
-  - Fit 2025: within 10% on 55% of days, within 20% on 78%; largest misses are holidays (Christmas -74%, Thanksgiving -62%, New Year's Day -57%), to be examined in step 2.
+  - Fit 2025: within 10% on 55% of days, within 20% on 78%; largest misses are holidays (Christmas -74%, Thanksgiving -62%, New Year's Day -57%), examined in step 2.
+- Step 2 findings (section 3; the weather model plus `holiday` (US federal holidays, pandas `USFederalHolidayCalendar`) and `christmas_week` (other days 24 Dec - 1 Jan), separate models per user type):
+  - Weekdays against Monday: members Tue-Thu +4.5 to +6.4%, Saturday -22%, Sunday -28%; casual Friday +19%, Saturday +84%, Sunday +63%.
+  - Federal holiday: members -40% (95% CI -44 to -35), casual +38% (+28 to +48); Christmas week members -39%, casual +13% (CI -3 to +31). Per holiday (median of the weather-model residual over the years): members Christmas -73%, Thanksgiving -68%, New Year's Day -56%, Veterans Day +5% (often a working day); casual up on most holidays, down only on Thanksgiving (-12%).
+  - Working-day rush-hour share (trips starting 07-09 and 17-19): members about 37% before 2020, 31-33% since (-4.5 points 2023-2025 vs. 2017-2019, CI -5.0 to -3.9; the morning peak dropped most, likely hybrid work); casual about 20-23% before 2020, 25-26% since. 2025 gap member minus casual 6.8 points (CI 6.6 to 7.0), was 14-18 points before 2020.
+  - Median trip duration: members 8-10 min (11.5 in 2020, 8.1 in 2025); casual about 18.5-21 min until 2020, 11.7 in 2025; 2025 difference 3.6 min (CI 3.3 to 3.9). The two groups converge since 2020 (causes not testable with this data: pricing, more casual riders using the bike as transport, hybrid work).
+  - Confidence intervals on daily series use HAC (Newey-West, 7 lags) regressions, also for simple means (`mean_with_hac_ci`).
 
 ### 6.6 Next steps (Citi Bike)
 

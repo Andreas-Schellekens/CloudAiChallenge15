@@ -34,7 +34,7 @@ CloudAiChallenge15/
     ├── README.md                 data layout, CSV formats, how to get the data
     ├── 00_download_citibike.py   step 00: download, unpack and assemble the data (see section 6.2)
     ├── 01a_eda_data_quality.ipynb   EDA phase 1: Parquet layer, completeness, data quality, overview, decisions (6.4)
-    ├── 01b_eda_patterns.ipynb       EDA phase 2: weather effects, time patterns (steps 1-2 done), more planned (6.5)
+    ├── 01b_eda_patterns.ipynb       EDA phase 2: weather, time patterns, bikes and distance (steps 1-3 done) (6.5)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB)
 ```
 
@@ -56,7 +56,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `01b` (steps 1-2) about 2.2 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `01b` (steps 1-3) about 5.3 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -179,7 +179,7 @@ Observations to keep in mind: the test set is a little easier than the validatio
 
 - Step 00 (getting the data) is done: `00_download_citibike.py`.
 - `01a_eda_data_quality.ipynb` (EDA phase 1) is done (2 October 2026), all five steps: harmonised schema, Parquet layer, duplicate removal and conversion checks (notebook sections 1-5, summarised in 6.4 below), completeness over time (section 6), data quality per column with nine cleaning rules (section 7), a first overview with graphs (section 8) and the table of 15 decisions for the data-preparation notebook plus paths not taken (section 9). The work was done on branch `citibike-eda-phase1` and merged into `main` on 2 October 2026.
-- `01b_eda_patterns.ipynb` (EDA phase 2) is in progress on branch `citibike-eda-phase2`: steps 1 (daily demand and the weather) and 2 (time patterns: weekdays, holidays, members vs. casual) are done; steps 3-5 (bikes and distance, stations and flows, summary with hypotheses for `01c`) are planned. See 6.5.
+- `01b_eda_patterns.ipynb` (EDA phase 2) is in progress on branch `citibike-eda-phase2`: steps 1 (daily demand and the weather), 2 (time patterns: weekdays, holidays, members vs. casual) and 3 (bikes and distance) are done; steps 4-5 (stations and flows, summary with hypotheses for `01c`) are planned. See 6.5.
 - No hypothesis notebook, preparation, model or deployment yet. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
@@ -237,7 +237,7 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 
 ### 6.5 EDA phase 2: `01b_eda_patterns.ipynb`
 
-- Plan (agreed step by step with the user): 1. daily demand and the weather (done, notebook section 2), 2. time patterns with evidence (done, section 3), 3. bikes and distance (electric vs. classic, distance and speed from coordinates, "going green"), 4. stations and flows (routes, imbalance by time of day), 5. summary and candidate hypotheses for `01c`.
+- Plan (agreed step by step with the user): 1. daily demand and the weather (done, notebook section 2), 2. time patterns with evidence (done, section 3), 3. bikes and distance (done, section 4), 4. stations and flows (routes, imbalance by time of day), 5. summary and candidate hypotheses for `01c`.
 - Setup: same plot style as `01a`; `clean_trips` is defined with the same SQL as `01a` section 8 (copied, with `CORRECTED_DURATION`, `NON_PUBLIC`, `REMOVE_RULES`).
 - Weather: NOAA GHCN-Daily, Central Park station `USW00094728`, file `Data/weather/USW00094728.csv` (about 18 MB, whole station history), downloaded once by the notebook from `https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/USW00094728.csv` (no account). Units: PRCP tenths of mm, SNOW and SNWD mm, TMAX/TMIN tenths of degrees C, AWND tenths of m/s. Complete for 2013-06-01..2026-08-31 except snow depth (4 days) and wind (226 days). Path not taken: Open-Meteo (modelled grid values instead of station measurements).
 - Step 1 findings (daily cleaned trips, 4,840 days):
@@ -252,6 +252,11 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
   - Working-day rush-hour share (trips starting 07-09 and 17-19): members about 37% before 2020, 31-33% since (-4.5 points 2023-2025 vs. 2017-2019, CI -5.0 to -3.9; the morning peak dropped most, likely hybrid work); casual about 20-23% before 2020, 25-26% since. 2025 gap member minus casual 6.8 points (CI 6.6 to 7.0), was 14-18 points before 2020.
   - Median trip duration: members 8-10 min (11.5 in 2020, 8.1 in 2025); casual about 18.5-21 min until 2020, 11.7 in 2025; 2025 difference 3.6 min (CI 3.3 to 3.9). The two groups converge since 2020 (causes not testable with this data: pricing, more casual riders using the bike as transport, hybrid work).
   - Confidence intervals on daily series use HAC (Newey-West, 7 lags) regressions, also for simple means (`mean_with_hac_ci`).
+- Step 3 findings (section 4; view `rides` = `clean_trips` with `distance_km`, the haversine straight-line distance, a lower bound of the route; round trips, trips without end coordinates and coordinates outside the New York box left out; 97.7% of the cleaned trips have a distance; coordinates are precise, almost none rounded):
+  - 2025 medians: member classic 1.09 km at 9.3 km/h, member electric 1.66 km at 12.6 km/h, casual classic 1.65 km at 7.6 km/h, casual electric 1.86 km at 10.8 km/h.
+  - Same-day comparison 2025 (daily medians, HAC CI): member electric trips +0.55 km (+51%, CI 0.53 to 0.58) and +3.4 km/h (+36%) vs. classic; casual +0.20 km (+13%) and +3.3 km/h (+42%). Explains the equal durations found in 01a.
+  - Electric share grows with distance: 45% under 0.5 km, 70% at 1 km, 77% at 2 km, 88% at 9.5-10 km. Members' classic trips got shorter (median 1.46 km in 2020, 1.09 km in 2025).
+  - Distance ridden (straight line, lower bound): 10.5 million km in 2013, 36.4 in 2019, 91.2 in 2025. CO2 only as an illustrated upper bound (EPA about 400 g CO2 per mile = about 250 g/km: about 23,000 t in 2025 if every km replaced a car km; about 4,600 t if a fifth did); the data cannot tell what the trips replaced.
 
 ### 6.6 Next steps (Citi Bike)
 

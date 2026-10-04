@@ -34,7 +34,7 @@ CloudAiChallenge15/
     ├── README.md                 data layout, CSV formats, how to get the data
     ├── 00_download_citibike.py   step 00: download, unpack and assemble the data (see section 6.2)
     ├── 01a_eda_data_quality.ipynb   EDA phase 1: Parquet layer, completeness, data quality, overview, decisions (6.4)
-    ├── 01b_eda_patterns.ipynb       EDA phase 2: weather, time, bikes and distance, stations (steps 1-4 done) (6.5)
+    ├── 01b_eda_patterns.ipynb       EDA phase 2: weather, time, bikes and distance, stations, hypotheses (6.5)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB)
 ```
 
@@ -56,7 +56,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `01b` (steps 1-4) about 6 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -179,8 +179,8 @@ Observations to keep in mind: the test set is a little easier than the validatio
 
 - Step 00 (getting the data) is done: `00_download_citibike.py`.
 - `01a_eda_data_quality.ipynb` (EDA phase 1) is done (2 October 2026), all five steps: harmonised schema, Parquet layer, duplicate removal and conversion checks (notebook sections 1-5, summarised in 6.4 below), completeness over time (section 6), data quality per column with nine cleaning rules (section 7), a first overview with graphs (section 8) and the table of 15 decisions for the data-preparation notebook plus paths not taken (section 9). The work was done on branch `citibike-eda-phase1` and merged into `main` on 2 October 2026.
-- `01b_eda_patterns.ipynb` (EDA phase 2) is in progress on branch `citibike-eda-phase2`: steps 1 (daily demand and the weather), 2 (time patterns: weekdays, holidays, members vs. casual), 3 (bikes and distance) and 4 (stations and flows) are done; step 5 (summary with hypotheses for `01c`) is planned. See 6.5.
-- No hypothesis notebook, preparation, model or deployment yet. This is the biggest risk for the deadline.
+- `01b_eda_patterns.ipynb` (EDA phase 2) is done (4 October 2026), done on branch `citibike-eda-phase2` and merged into `main` on 4 October 2026: daily demand and the weather, time patterns, bikes and distance, stations and flows, and a summary with four candidate hypotheses and three candidate prediction targets for `01c`. See 6.5.
+- No hypothesis notebook (`01c`), preparation, model or deployment yet. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
@@ -237,7 +237,7 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 
 ### 6.5 EDA phase 2: `01b_eda_patterns.ipynb`
 
-- Plan (agreed step by step with the user): 1. daily demand and the weather (done, notebook section 2), 2. time patterns with evidence (done, section 3), 3. bikes and distance (done, section 4), 4. stations and flows (done, section 5), 5. summary and candidate hypotheses for `01c`.
+- Plan (agreed step by step with the user): 1. daily demand and the weather (done, notebook section 2), 2. time patterns with evidence (done, section 3), 3. bikes and distance (done, section 4), 4. stations and flows (done, section 5), 5. summary and candidate hypotheses for `01c` (done, section 6). All five steps are done.
 - Setup: same plot style as `01a`; `clean_trips` is defined with the same SQL as `01a` section 8 (copied, with `CORRECTED_DURATION`, `NON_PUBLIC`, `REMOVE_RULES`).
 - Weather: NOAA GHCN-Daily, Central Park station `USW00094728`, file `Data/weather/USW00094728.csv` (about 18 MB, whole station history), downloaded once by the notebook from `https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/USW00094728.csv` (no account). Units: PRCP tenths of mm, SNOW and SNWD mm, TMAX/TMIN tenths of degrees C, AWND tenths of m/s. Complete for 2013-06-01..2026-08-31 except snow depth (4 days) and wind (226 days). Path not taken: Open-Meteo (modelled grid values instead of station measurements).
 - Step 1 findings (daily cleaned trips, 4,840 days):
@@ -261,10 +261,16 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
   - Routes (ordered station pairs, no round trips): 1,552,661 routes for 44.7 million trips; the 1,000 busiest carry 4.7%, the 10,000 busiest 20.1%. The busiest are short hops within a neighbourhood (Long Island City, Williamsburg, Lower East Side; median 3-5 min), used about equally in both directions. Predicting per station or area is more realistic than per route.
   - Net flow per station (arrivals minus departures per working day; morning = trips starting/ending 07:00-09:59, evening 16:00-18:59; stations with at least about 2 trips a day: 2,196): in the morning residential areas (Upper West/East Side, East Village, Lower East Side, more faintly Brooklyn and Queens) empty and Midtown and Lower Manhattan fill up; the evening mirrors it. Spearman morning vs. evening -0.86 (95% CI -0.87 to -0.85, Fisher z). Most emptying in the morning: W 43 St & 10 Ave (-61 a day); most filling: E 47 St & Park Ave (+98).
   - About 6,000 bikes per working day end the morning rush in another part of the city (sum of morning surpluses), but only about 790 remain as net surplus over the whole day (0.6% of about 130,000 trips per working day): the commute largely rebalances itself; the imbalance in between is the rebalancing task (an hourly station-level forecast would help).
+- Step 5 (section 6): summary table and the hypotheses for `01c`. Because the hypotheses were found on all the data, `01c` must test them out of sample: fit on days up to 2023-12-31, test on the hold-out period 2024-01-01..2026-08-31 (974 days, about 120 million trips). Pre-registered in 01b section 6.2:
+  - H1 (recommended main hypothesis): rain reduces casual trips relatively more than member trips. Test: daily trips per user type (two rows per day), one log-linear model with the weather/weekday/month terms and a user type x precipitation class interaction, HAC SEs. Rejected if on the hold-out period the interaction for heavy and very heavy rain is not negative or its 95% CI includes 0.
+  - H2: on federal holidays member trips fall and casual trips rise (holiday terms of section 3.1 on the hold-out period, 28 holidays). Rejected if the member effect is not below 0 or the casual effect not above 0 (95% CI).
+  - H3: the longer a trip, the more likely it is electric (logistic regression of electric on straight-line distance per user type, fixed random sample of hold-out trips). Rejected if the odds ratio per km is not above 1.
+  - H4 (bridge to the model): weather and calendar predict daily demand better than the calendar alone (two models fitted up to 2023, both with trend, month, weekday and holidays, one also with temperature, precipitation and snow; MAPE on the hold-out days, paired comparison of daily errors). Rejected if the weather model is not more accurate.
+  - Candidate prediction targets: daily demand (recommended: strongest signal, about 4,800 rows, deployable with a weather forecast as input, fits "going green"), member vs. casual per trip (groups converge since 2020), hourly demand per station (useful for rebalancing, large and noisy). Final choice with the team before the data-preparation notebook; on 4 October 2026 the user left the choice of main hypothesis and prediction target open for team discussion.
 
 ### 6.6 Next steps (Citi Bike)
 
 1. `01a` is done. If `01b` needs row-level plots, add a fixed, seeded sample (e.g. 1% per month) of `clean_trips`.
-2. `01b_eda_patterns.ipynb`: steps 2-5 of the plan in 6.5.
-3. `01c_eda_hypothesis.ipynb`: at least one testable hypothesis, tested before modelling. Candidate prediction targets: daily demand (with weather), member vs. casual, trip duration.
+2. `01b` is done.
+3. `01c_eda_hypothesis.ipynb`: test the pre-registered hypotheses of 6.5 (at least H1; H4 links to the model) on the hold-out period, exactly as written in 01b section 6.2, and report honestly if one is rejected. The choice of main hypothesis and prediction target is open for team discussion (recommended: H1 and daily demand); ask the user before starting `01c`.
 4. Data-preparation notebook, then the same model sequence as the mushrooms (baseline, PyCaret, tuned models, AWS model, comparison) and a deployment. Reuse the mushroom protocol ideas (fixed split, validation for choices, test once, shared metrics file).

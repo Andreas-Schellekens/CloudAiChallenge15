@@ -34,7 +34,7 @@ downloaded=0 dry_run=no` (status `ok`, `dry_run` or `error`). Exit codes: 0 = su
 line says what to do; usually just run it again), 2 = invalid arguments. `python NYCCitiBikeSystemData/00_download_citibike.py --help`
 shows all options and these rules.
 
-## Folder layout after step 00 and `01a`
+## Folder layout after step 00, `01a` and `01b`
 
 ```
 Data/
@@ -45,9 +45,10 @@ Data/
 │   └── ...
 ├── ...
 ├── 2026-citibike-tripdata/8_August/202608-citibike-tripdata_1.csv
-└── parquet/                                    made by 01a_eda_data_quality.ipynb (about 10 GB)
-    ├── trips/trips_2013-06.parquet ...         all trips in one harmonised schema, one file per month
-    └── removed_duplicates.parquet              the 531 duplicate copies that were removed (for tracing)
+├── parquet/                                    made by 01a_eda_data_quality.ipynb (about 10 GB)
+│   ├── trips/trips_2013-06.parquet ...         all trips in one harmonised schema, one file per month
+│   └── removed_duplicates.parquet              the 531 duplicate copies that were removed (for tracing)
+└── weather/USW00094728.csv                     daily weather of Central Park (NOAA), downloaded by 01b
 ```
 
 Read the CSVs **directly inside** the month folders. The `Origineel/` subfolders hold the same trips a second time
@@ -85,6 +86,7 @@ minutes). DuckDB downloads its `icu` extension (time zones) the first time. To r
 |---|---|---|---|
 | 00 | `00_download_citibike.py` | Download, unpack and assemble the data | Done |
 | 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules, first overview with graphs, decisions for the data preparation | Done |
-| 01b, 01c | `01b_eda_patterns.ipynb`, `01c_eda_hypothesis.ipynb` | Patterns over time, users, bikes and stations; testable hypothesis | Planned |
+| 01b | `01b_eda_patterns.ipynb` | Patterns with statistical evidence: weather effects on daily demand (done); time patterns and holidays, bikes and distance, stations and flows (planned) | In progress |
+| 01c | `01c_eda_hypothesis.ipynb` | Testable hypothesis, tested before modelling | Planned |
 | 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

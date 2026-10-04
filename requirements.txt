@@ -7,6 +7,7 @@ ipykernel
 pandas
 numpy
 scipy
+statsmodels
 
 # Large data (Citi Bike): SQL queries on CSV/Parquet without loading everything in memory
 duckdb

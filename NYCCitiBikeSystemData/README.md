@@ -87,6 +87,6 @@ minutes). DuckDB downloads its `icu` extension (time zones) the first time. To r
 | 00 | `00_download_citibike.py` | Download, unpack and assemble the data | Done |
 | 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules, first overview with graphs, decisions for the data preparation | Done |
 | 01b | `01b_eda_patterns.ipynb` | Patterns with statistical evidence: weather effects on daily demand, time patterns, holidays, members vs. casual, electric vs. classic bikes, distance and speed, routes and station flows; summary with four hypotheses for 01c | Done |
-| 01c | `01c_eda_hypothesis.ipynb` | Testable hypothesis, tested before modelling | Planned |
+| 01c | `01c_eda_hypothesis.ipynb` | Out-of-sample test of H1 (casual riders more rain-sensitive) and H4 (weather improves daily-demand predictions): both not rejected | Done |
 | 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

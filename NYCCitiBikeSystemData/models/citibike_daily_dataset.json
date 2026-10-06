@@ -1,0 +1,79 @@
+{
+  "dataset": "Citi Bike daily demand, one row per day (02_data_preparation.ipynb)",
+  "files": {
+    "train": "Data/train/citibike_daily_train.csv",
+    "validation": "Data/validation/citibike_daily_validation.csv",
+    "test": "Data/test/citibike_daily_test.csv",
+    "monthly": "Data/citibike_monthly.csv"
+  },
+  "key": "date",
+  "splits": {
+    "train": {
+      "first_day": "2014-07-01",
+      "last_day": "2023-12-31"
+    },
+    "validation": {
+      "first_day": "2024-01-01",
+      "last_day": "2024-12-31"
+    },
+    "test": {
+      "first_day": "2025-01-01",
+      "last_day": "2026-08-30"
+    }
+  },
+  "columns": {
+    "target": [
+      "total"
+    ],
+    "target_parts": [
+      "member",
+      "casual",
+      "unknown"
+    ],
+    "level": [
+      "level_12m",
+      "member_level_12m",
+      "casual_level_12m"
+    ],
+    "calendar": [
+      "weekday",
+      "month",
+      "day_of_year",
+      "holiday",
+      "christmas_week"
+    ],
+    "weather": [
+      "tmax_c",
+      "precipitation",
+      "precipitation_mm",
+      "snow_on_ground"
+    ],
+    "weather_extra": [
+      "tmin_c",
+      "snowfall_mm",
+      "snow_depth_mm",
+      "wind_ms"
+    ]
+  },
+  "categorical": [
+    "precipitation",
+    "weekday",
+    "month"
+  ],
+  "precipitation_classes_mm": {
+    "dry": "0",
+    "light": "0-2.5",
+    "moderate": "2.5-10",
+    "heavy": "10-25",
+    "very heavy": "over 25"
+  },
+  "level_definition": "mean trips per day over the 12 months m-13 .. m-2 for a day in month m",
+  "recommended_target": "demand_ratio = total / level_12m; predicted trips = predicted ratio * level_12m",
+  "cleaning_rules": [
+    "D1 corrected duration",
+    "D2 remove trips over 24 h",
+    "S3 remove non-public stations",
+    "R1 remove round trips under 3 minutes"
+  ],
+  "weather_source": "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/USW00094728.csv"
+}

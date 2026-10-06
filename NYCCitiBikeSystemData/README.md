@@ -34,7 +34,7 @@ downloaded=0 dry_run=no` (status `ok`, `dry_run` or `error`). Exit codes: 0 = su
 line says what to do; usually just run it again), 2 = invalid arguments. `python NYCCitiBikeSystemData/00_download_citibike.py --help`
 shows all options and these rules.
 
-## Folder layout after step 00, `01a` and `01b`
+## Folder layout after step 00, `01a`, `01b` and `02`
 
 ```
 Data/
@@ -48,8 +48,15 @@ Data/
 ├── parquet/                                    made by 01a_eda_data_quality.ipynb (about 10 GB)
 │   ├── trips/trips_2013-06.parquet ...         all trips in one harmonised schema, one file per month
 │   └── removed_duplicates.parquet              the 531 duplicate copies that were removed (for tracing)
-└── weather/USW00094728.csv                     daily weather of Central Park (NOAA), downloaded by 01b
+├── weather/USW00094728.csv                     daily weather of Central Park (NOAA), downloaded by 01b
+├── train/citibike_daily_train.csv              made by 02_data_preparation.ipynb: one row per day, 2014-07..2023
+├── validation/citibike_daily_validation.csv    2024
+├── test/citibike_daily_test.csv                2025-01-01..2026-08-30
+└── citibike_monthly.csv                        trips per month and the level feature (needed by the deployment)
 ```
+
+`models/citibike_daily_dataset.json` (committed) describes the daily dataset: split dates, column groups, the
+definition of the level feature and the recommended target.
 
 Read the CSVs **directly inside** the month folders. The `Origineel/` subfolders hold the same trips a second time
 (Citi Bike ships 2013 and 2018 both split and unsplit), so reading them as well would count every trip twice.
@@ -80,6 +87,13 @@ minutes). DuckDB downloads its `icu` extension (time zones) the first time. To r
 `Data/parquet/` and run the notebook again. The cleaning rules for the data-preparation notebook are in its sections
 7.5 and 9.
 
+## Running `02_data_preparation.ipynb`
+
+Run it after `01a` (it reads the Parquet layer; the weather file is downloaded if it is missing). It takes about one
+minute and writes the daily train / validation / test files, `Data/citibike_monthly.csv` and
+`models/citibike_daily_dataset.json`. It also reads the public S3 listing of Citi Bike to show the publication delay
+of the monthly data (skipped without internet).
+
 ## Notebooks
 
 | # | Notebook | Content | Status |
@@ -88,5 +102,5 @@ minutes). DuckDB downloads its `icu` extension (time zones) the first time. To r
 | 01a | `01a_eda_data_quality.ipynb` | Harmonised schema, Parquet conversion, duplicate removal, conversion checks, completeness over time, data quality per column with cleaning rules, first overview with graphs, decisions for the data preparation | Done |
 | 01b | `01b_eda_patterns.ipynb` | Patterns with statistical evidence: weather effects on daily demand, time patterns, holidays, members vs. casual, electric vs. classic bikes, distance and speed, routes and station flows; summary with four hypotheses for 01c | Done |
 | 01c | `01c_eda_hypothesis.ipynb` | Out-of-sample test of H1 (casual riders more rain-sensitive) and H4 (weather improves daily-demand predictions): both not rejected | Done |
-| 02 | `02_data_preparation.ipynb` | Harmonised, cleaned data without graphs | Planned |
+| 02 | `02_data_preparation.ipynb` | Cleaning rules applied, one row per day with weather and calendar features, the level feature `level_12m` and target `demand_ratio`, time-based split (train 2014-07..2023, validation 2024, test 2025-01..2026-08-30) | Done |
 | 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

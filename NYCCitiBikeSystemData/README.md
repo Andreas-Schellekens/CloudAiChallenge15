@@ -103,4 +103,5 @@ of the monthly data (skipped without internet).
 | 01b | `01b_eda_patterns.ipynb` | Patterns with statistical evidence: weather effects on daily demand, time patterns, holidays, members vs. casual, electric vs. classic bikes, distance and speed, routes and station flows; summary with four hypotheses for 01c | Done |
 | 01c | `01c_eda_hypothesis.ipynb` | Out-of-sample test of H1 (casual riders more rain-sensitive) and H4 (weather improves daily-demand predictions): both not rejected | Done |
 | 02 | `02_data_preparation.ipynb` | Cleaning rules applied, one row per day with weather and calendar features, the level feature `level_12m` and target `demand_ratio`, time-based split (train 2014-07..2023, validation 2024, test 2025-01..2026-08-30) | Done |
-| 03+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |
+| 03 | `03_model_baseline.ipynb` | Shared protocol for the model notebooks; baseline linear regression on `log(demand_ratio)` (validation MAPE 12.4%, test 17.4%); deployable pipeline `models/citibike_baseline.joblib` and the feature recipe for the API | Done |
+| 04+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |

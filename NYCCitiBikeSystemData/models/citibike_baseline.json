@@ -1,0 +1,25 @@
+{
+  "model": "citibike_baseline",
+  "notebook": "03_model_baseline",
+  "estimator": "LinearRegression in a Pipeline",
+  "input_columns": [
+    "weekday",
+    "month",
+    "holiday",
+    "christmas_week",
+    "tmax_c",
+    "precipitation",
+    "snow_on_ground"
+  ],
+  "output": "log(demand_ratio); predicted trips = exp(output) * level_12m",
+  "level_12m": "mean trips per day over the 12 months m-13 .. m-2 for a day in month m",
+  "trained_on": {
+    "first_day": "2014-07-01",
+    "last_day": "2023-12-31"
+  },
+  "validation": {
+    "mae": 12787.35,
+    "mape": 12.36,
+    "bias_pct": -4.2
+  }
+}

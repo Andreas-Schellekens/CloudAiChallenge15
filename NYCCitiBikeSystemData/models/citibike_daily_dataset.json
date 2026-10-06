@@ -40,7 +40,11 @@
       "month",
       "day_of_year",
       "holiday",
-      "christmas_week"
+      "christmas_week",
+      "thanksgiving",
+      "day_after_thanksgiving",
+      "christmas_day",
+      "new_years_day"
     ],
     "weather": [
       "tmax_c",

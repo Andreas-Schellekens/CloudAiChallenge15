@@ -104,4 +104,5 @@ of the monthly data (skipped without internet).
 | 01c | `01c_eda_hypothesis.ipynb` | Out-of-sample test of H1 (casual riders more rain-sensitive) and H4 (weather improves daily-demand predictions): both not rejected | Done |
 | 02 | `02_data_preparation.ipynb` | Cleaning rules applied, one row per day with weather and calendar features, the level feature `level_12m` and target `demand_ratio`, time-based split (train 2014-07..2023, validation 2024, test 2025-01..2026-08-30) | Done |
 | 03 | `03_model_baseline.ipynb` | Shared protocol for the model notebooks; baseline linear regression on `log(demand_ratio)` (validation MAPE 12.4%, test 17.4%); deployable pipeline `models/citibike_baseline.joblib` and the feature recipe for the API | Done |
-| 04+ | model notebooks and comparison | Same sequence as the mushroom dataset | Planned |
+| 04 | `04_model_automl.ipynb` | PyCaret regression with the yearly folds: boosting best, Huber second; extended columns help the trees; chosen blend of gradient boosting + random forest + LightGBM (validation MAPE 9.5%, test 14.6%); `models/citibike_pycaret.pkl` (32 MB, git-ignored) | Done |
+| 05+ | tuned models, AWS model, comparison | Same sequence as the mushroom dataset | Planned |

@@ -38,7 +38,8 @@ CloudAiChallenge15/
     ├── 01c_eda_hypothesis.ipynb     EDA phase 3: out-of-sample test of H1 and H4 (6.6)
     ├── 02_data_preparation.ipynb    daily-demand dataset: cleaning, features, level, split (6.7)
     ├── 03_model_baseline.ipynb      protocol for the model notebooks + baseline linear regression (6.8)
-    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline.joblib + .json (all committed)
+    ├── 04_model_automl.ipynb        PyCaret regression with the yearly folds (6.9)
+    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline.joblib + .json (committed); citibike_pycaret.pkl (git-ignored)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB),
                                   train/ validation/ test/ (daily CSVs), citibike_monthly.csv
 ```
@@ -61,7 +62,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `04` about 80 s. `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -73,7 +74,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
 - Notebook prose, comments and READMEs are in English.
 - **No emojis anywhere** (notebooks, READMEs, comments, commit messages). Use plain words, e.g. "Done" / "Planned".
 - Data files are never committed (`*/Data/*` is git-ignored except `.gitkeep`). Citi Bike data must be downloaded, unpacked and assembled **by code**, never by hand.
-- Model files: nothing over 100 MB may be committed. Large models that a notebook regenerates are git-ignored: `SecondaryMushroom/models/mushroom_pycaret_rf.pkl`, `mushroom_random_forest.joblib`, `mushroom_ensemble.joblib` (15–27 MB each). Small deployable pipelines (`mushroom_baseline.joblib`, `mushroom_gradient_boosting.joblib`, `mushroom_preprocessor.joblib`), all model `.json` files and `metrics.csv` are committed.
+- Model files: nothing over 100 MB may be committed. Large models that a notebook regenerates are git-ignored: `SecondaryMushroom/models/mushroom_pycaret_rf.pkl`, `mushroom_random_forest.joblib`, `mushroom_ensemble.joblib` (15–27 MB each), and `NYCCitiBikeSystemData/models/citibike_pycaret.pkl` (32 MB). Small deployable pipelines (`mushroom_baseline.joblib`, `mushroom_gradient_boosting.joblib`, `mushroom_preprocessor.joblib`), all model `.json` files and `metrics.csv` are committed.
 
 ## 5. SecondaryMushroom
 
@@ -188,7 +189,8 @@ Observations to keep in mind: the test set is a little easier than the validatio
 - `01c_eda_hypothesis.ipynb` (EDA phase 3) is done (5 October 2026), done on branch `citibike-eda-phase3` and merged into `main` on 5 October 2026: H1 and H4 tested out of sample, both not rejected (H1 with a qualification, see 6.6). The team chose H1 as the main hypothesis and **daily demand** as the prediction target (5 October 2026).
 - `02_data_preparation.ipynb` (daily-demand dataset) is done (6 October 2026), done on branch `citibike-data-preparation` and merged into `main` on 6 October 2026; the split proposed in 01c was confirmed by the user. See 6.7.
 - `03_model_baseline.ipynb` is done (6 October 2026), done on branch `citibike-model-baseline` and merged into `main` on 6 October 2026: shared protocol (6.8) and the baseline. See 6.8.
-- No AutoML, tuned or AWS model and no deployment yet. This is the biggest risk for the deadline.
+- `04_model_automl.ipynb` is done (6 October 2026), done on branch `citibike-model-automl` and merged into `main` on 6 October 2026. See 6.9.
+- No tuned or AWS model and no deployment yet. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
@@ -312,10 +314,21 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 - Coefficients match 01b: rain -9.3 / -24.4 / -37.7 / -52.4%, 0 degrees -57% vs 20, Saturday -11%, Sunday -19%, holiday -32%, Christmas week -35%, snow on the ground -34% (01b -24%).
 - Candidate improvements for the tuned models: big-holiday features (Thanksgiving and the day after, Christmas, New Year's Day), snow depth as a number, a recent-growth feature, more weight for recent years; per user type as an option.
 
-### 6.9 Next steps (Citi Bike)
+### 6.9 AutoML: `04_model_automl.ipynb`
+
+- PyCaret regression (`lightgbm` imported first, `n_jobs=1`), `data` = training days with trips, `test_data` = validation 2024, target `log_ratio`, `fold_strategy=YearlyFolds(fit_days.index)` (a small splitter class with the protocol folds; `data_split_shuffle=False`, `fold_shuffle=False`, order checked), `normalize=True`, median imputation. A `tmax_c_sq` column is added so linear models can draw the temperature curve. PyCaret's linear regression reproduces the baseline (max difference 0.9%, validation MAE 12,817 vs 12,787).
+- Base features, fold MAE on the log scale: gbr 0.154, huber 0.157, lightgbm 0.159, rf 0.168, lr 0.168; lasso / elastic net / lasso-LARS = dummy 0.387 (default alpha=1 too strong). Validation MAPE: gbr 11.1, huber 11.2 (lowest MAE 10,768, bias -1.0%), lightgbm 11.8, lr 12.4, rf 13.5.
+- Extended features (`day_of_year, precipitation_mm, snow_depth_mm, snowfall_mm, tmin_c, wind_ms`): trees gain most (et -0.032, rf -0.021, gbr -0.013, lightgbm -0.009), linear less (lr -0.008, huber -0.005); top gbr 0.140, rf 0.147, lightgbm 0.150. LAR breaks (0.49, collinear columns).
+- Tuning gbr (30 iterations): folds 0.1404 -> 0.1402, validation 10.2% -> 9.9%. Blend gbr + rf + lightgbm: folds 0.1381 (chosen), validation MAPE 9.5%, MAE 9,658.
+- Chosen blend: validation MAE 9,658, MAPE 9.5%, within 20% 88.5%, bias -3.1%; test MAE 13,806, MAPE 14.6%, within 20% 80.9%, bias +8.6% (baseline 17,206 / 17.4% / 73.6% / +7.8%). Predicts about 5,000 trips on the blizzard day 2026-02-23 (actual 0).
+- Monthly bias has the same shape as the baseline (2025 from June +9 to +16%, January/February 2026 +37.5% / +29.5%; training has 104 days with >= 100 mm snow depth, so not unseen weather): the drift is a target/level problem, not a model problem.
+- Importance (first gbr of the blend): tmax 48%, precipitation_mm 15%, tmin 8%, tmax_sq 7%, day_of_year 6%, snow depth 5%, snowfall 4%; month columns and the snow flag almost 0.
+- `models/citibike_pycaret.pkl` (32 MB) git-ignored, regenerated by 04; not for deployment (needs PyCaret).
+
+### 6.10 Next steps (Citi Bike)
 
 1. `01a` is done. If `01b` needs row-level plots, add a fixed, seeded sample (e.g. 1% per month) of `clean_trips`.
 2. `01b` is done.
 3. `01c` is done (6.6).
 4. `02` is done (6.7).
-5. `03` is done (6.8). Next: `04` PyCaret regression (same target, features and yearly folds via a custom fold generator), `05a/05b...` tuned models with the candidate features of 6.8, `06` AWS, `07` comparison. Then a deployment that predicts tomorrow's trips from a weather forecast (the baseline can already be deployed).
+5. `03` and `04` are done (6.8, 6.9). Next: `05a/05b...` tuned models on the extended features (hand-tuned gradient boosting, e.g. `HistGradientBoostingRegressor` with native NaN handling; a second family such as random forest or Huber), with candidate features against the drift (recent growth: last published months vs. the same months a year earlier) and for the big holidays (Thanksgiving and the day after, Christmas, New Year's Day); then `06` AWS, `07` comparison. Then a deployment that predicts tomorrow's trips from a weather forecast (the baseline can already be deployed).

@@ -37,7 +37,8 @@ CloudAiChallenge15/
     ├── 01b_eda_patterns.ipynb       EDA phase 2: weather, time, bikes and distance, stations, hypotheses (6.5)
     ├── 01c_eda_hypothesis.ipynb     EDA phase 3: out-of-sample test of H1 and H4 (6.6)
     ├── 02_data_preparation.ipynb    daily-demand dataset: cleaning, features, level, split (6.7)
-    ├── models/                   citibike_daily_dataset.json (split dates, column groups, level definition)
+    ├── 03_model_baseline.ipynb      protocol for the model notebooks + baseline linear regression (6.8)
+    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline.joblib + .json (all committed)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB),
                                   train/ validation/ test/ (daily CSVs), citibike_monthly.csv
 ```
@@ -60,7 +61,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -186,7 +187,8 @@ Observations to keep in mind: the test set is a little easier than the validatio
 - `01b_eda_patterns.ipynb` (EDA phase 2) is done (4 October 2026), done on branch `citibike-eda-phase2` and merged into `main` on 4 October 2026: daily demand and the weather, time patterns, bikes and distance, stations and flows, and a summary with four candidate hypotheses and three candidate prediction targets for `01c`. See 6.5.
 - `01c_eda_hypothesis.ipynb` (EDA phase 3) is done (5 October 2026), done on branch `citibike-eda-phase3` and merged into `main` on 5 October 2026: H1 and H4 tested out of sample, both not rejected (H1 with a qualification, see 6.6). The team chose H1 as the main hypothesis and **daily demand** as the prediction target (5 October 2026).
 - `02_data_preparation.ipynb` (daily-demand dataset) is done (6 October 2026), done on branch `citibike-data-preparation` and merged into `main` on 6 October 2026; the split proposed in 01c was confirmed by the user. See 6.7.
-- No model or deployment yet. This is the biggest risk for the deadline.
+- `03_model_baseline.ipynb` is done (6 October 2026), done on branch `citibike-model-baseline` and merged into `main` on 6 October 2026: shared protocol (6.8) and the baseline. See 6.8.
+- No AutoML, tuned or AWS model and no deployment yet. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
@@ -292,10 +294,28 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 - **Split** (confirmed by the user, 6 October 2026): train 2014-07-01..2023-12-31 (3,471 days, 193.3 M trips, 9 zero days, 220 missing wind), validation 2024 (366 days, 44.1 M), test 2025-01-01..2026-08-30 (607 days, 75.4 M, 1 zero day 2026-02-23). Files `Data/<split>/citibike_daily_<split>.csv` (key `date`), `Data/citibike_monthly.csv`, `models/citibike_daily_dataset.json` (committed). Sanity checks: no gaps or overlap, no NaN except wind, the level uses only past months, trip totals add up.
 - Suggestions for the model notebooks (not yet fixed): model `demand_ratio` or its log; leave zero days out of fitting for log targets, keep them in evaluation; metrics MAE, MAPE on days with trips, share within 20%; time-series CV inside train (expanding window or `TimeSeriesSplit`), never shuffled; impute wind inside the pipeline or leave it out. Deployment needs calendar + weather forecast (tmax, precipitation, snow depth) + level from `citibike_monthly.csv`; trained on measured weather, used with forecasts. Open question for the deployment: the retraining pipeline cannot read the 10 GB Parquet layer on GitHub, so it will need the small daily files from somewhere (they are git-ignored now).
 
-### 6.8 Next steps (Citi Bike)
+### 6.8 Model protocol and baseline: `03_model_baseline.ipynb`
+
+**Protocol for every Citi Bike model notebook** (fixed in 03 section 3, follow it like 5.3 for the mushrooms):
+- Load the sets via `models/citibike_daily_dataset.json` (`DATASET["files"][split]`, `index_col="date"`). Never re-split.
+- Fit target `log(demand_ratio)`; predicted trips = `exp(prediction) * level_12m`. Every saved pipeline takes the input columns and returns the log ratio.
+- Days without trips (9 in train, 1 in test) are left out of fitting, kept in evaluation.
+- Metrics via `evaluate(name, split, actual, predicted)` (copy it): `model, notebook, split, days, mae, rmse` (trips, all days), `mape, median_ape, within_20pct, bias_pct` (days with trips; bias > 0 = too many trips predicted). Rows for validation and test go to `NYCCitiBikeSystemData/models/metrics.csv`; a notebook replaces its own rows (key `notebook`).
+- Choices on yearly expanding-window folds inside train: `yearly_folds(index)` with `CV_YEARS = [2016, 2017, 2018, 2019, 2022, 2023]` (2020-2021 stay in training data but are not predicted); for scikit-learn searches `cv=yearly_folds(fit_days.index)`, `scoring="neg_mean_absolute_error"` on the log ratio. Then check on validation 2024; the test period once per model; no refit on train + validation.
+- Deployment recipe `features_for_day(date, tmax_c, precipitation_mm, snow_depth_mm, monthly)` in 03 section 8 (calendar from the date, precipitation class, snow flag, `level_12m` from `Data/citibike_monthly.csv`); verified on all 607 test days.
+
+**Baseline results:**
+- Candidates on the folds (mean MAPE) and validation: seasonal naive (median ratio per month x weekday) 31.6% / 22.2%; linear regression on the total 17.4% / 12.4%; linear per user type summed (H1 idea) 17.3% / 12.2% (MAE 12,177 vs 12,787, but within 20% 80.3 vs 82.2): practically equal, not adopted (twice the parts; members are about 82% of trips).
+- Baseline = `LinearRegression` in a `Pipeline` (`OneHotEncoder(drop="first")` on weekday, month, precipitation; `PolynomialFeatures(2)` on `tmax_c`; passthrough holiday, christmas_week, snow_on_ground). Input columns: `weekday, month, holiday, christmas_week, tmax_c, precipitation, snow_on_ground`. Saved as `models/citibike_baseline.joblib` (4 KB) + `.json`.
+- Validation: MAE 12,787, RMSE 16,670, MAPE 12.4%, within 20% 82.2%, bias -4.2%. Test: MAE 17,206, MAPE 17.4%, within 20% 73.6%, bias +7.8%. Seasonal naive test MAPE 38.0%. Over 2024-2026 (972 days with trips) 15.5% vs 16.2% for the 01c trend model.
+- Error analysis: monthly bias -14% (January 2024) to -6% (June 2024) in the growth year, +9% to +18% from June 2025 (growth stopped, the model learned a median ratio of about 1.16), +34% / +31% in January / February 2026 (deep snow, mean depth 115 mm in February). Biggest validation misses: Thanksgiving and the day after (+81%), Christmas (+59%), summer days with very heavy rain (-42% to -48%, rain timing unknown), old snow of 30-50 mm (-42% to -44%).
+- Coefficients match 01b: rain -9.3 / -24.4 / -37.7 / -52.4%, 0 degrees -57% vs 20, Saturday -11%, Sunday -19%, holiday -32%, Christmas week -35%, snow on the ground -34% (01b -24%).
+- Candidate improvements for the tuned models: big-holiday features (Thanksgiving and the day after, Christmas, New Year's Day), snow depth as a number, a recent-growth feature, more weight for recent years; per user type as an option.
+
+### 6.9 Next steps (Citi Bike)
 
 1. `01a` is done. If `01b` needs row-level plots, add a fixed, seeded sample (e.g. 1% per month) of `clean_trips`.
 2. `01b` is done.
 3. `01c` is done (6.6).
 4. `02` is done (6.7).
-5. Model notebooks for daily demand, the same sequence as the mushrooms: `03` baseline (e.g. the 01c log-linear weather model on `demand_ratio`), `04` PyCaret (regression), `05a/05b...` tuned models, `06` AWS, `07` comparison. Fix the shared protocol in `03` (metrics file, time-series CV, how zero days are handled) and record it here. Then a deployment that predicts tomorrow's trips from a weather forecast.
+5. `03` is done (6.8). Next: `04` PyCaret regression (same target, features and yearly folds via a custom fold generator), `05a/05b...` tuned models with the candidate features of 6.8, `06` AWS, `07` comparison. Then a deployment that predicts tomorrow's trips from a weather forecast (the baseline can already be deployed).

@@ -1,0 +1,40 @@
+{
+  "model": "citibike_gradient_boosting",
+  "notebook": "05a_model_gradient_boosting",
+  "estimator": "HistGradientBoostingRegressor",
+  "input_columns": [
+    "weekday",
+    "month",
+    "holiday",
+    "christmas_week",
+    "day_of_year",
+    "tmax_c",
+    "tmin_c",
+    "precipitation_mm",
+    "snowfall_mm",
+    "snow_depth_mm",
+    "wind_ms"
+  ],
+  "categorical_columns": [
+    "weekday",
+    "month"
+  ],
+  "missing_values_allowed": [
+    "wind_ms"
+  ],
+  "output": "log(demand_ratio); predicted trips = exp(output) * level_12m",
+  "level_12m": "mean trips per day over the 12 months m-13 .. m-2 for a day in month m",
+  "hyperparameters": {
+    "l2_regularization": 0.0021057814970279003,
+    "learning_rate": 0.035158023650518344,
+    "max_features": 0.5452959629664555,
+    "max_iter": 393,
+    "max_leaf_nodes": 31,
+    "min_samples_leaf": 9
+  },
+  "validation": {
+    "mae": 9499.55,
+    "mape": 9.64,
+    "bias_pct": -3.1
+  }
+}

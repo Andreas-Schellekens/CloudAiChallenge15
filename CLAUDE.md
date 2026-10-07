@@ -40,7 +40,8 @@ CloudAiChallenge15/
     ├── 03_model_baseline.ipynb      protocol for the model notebooks + baseline linear regression (6.8)
     ├── 04_model_automl.ipynb        PyCaret regression with the yearly folds (6.9)
     ├── 05a_model_gradient_boosting.ipynb   tuned HistGradientBoostingRegressor (6.10)
-    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline / citibike_gradient_boosting .joblib + .json (committed); citibike_pycaret.pkl (git-ignored)
+    ├── 05b_model_huber.ipynb        tuned robust linear model, HuberRegressor (6.11)
+    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline / citibike_gradient_boosting / citibike_huber .joblib + .json (committed); citibike_pycaret.pkl (git-ignored)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB),
                                   train/ validation/ test/ (daily CSVs), citibike_monthly.csv
 ```
@@ -63,7 +64,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `05a` about 5 min (random search about 4.5 min). `04` about 80 s. `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `05b` about 30 s. `05a` about 5 min (random search about 4.5 min). `04` about 80 s. `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -192,7 +193,8 @@ Observations to keep in mind: the test set is a little easier than the validatio
 - `03_model_baseline.ipynb` is done (6 October 2026), done on branch `citibike-model-baseline` and merged into `main` on 6 October 2026: shared protocol (6.8) and the baseline. See 6.8.
 - `04_model_automl.ipynb` is done (6 October 2026), done on branch `citibike-model-automl` and merged into `main` on 6 October 2026. See 6.9.
 - `05a_model_gradient_boosting.ipynb` is done (6 October 2026), done on branch `citibike-model-tuned` and merged into `main` on 6 October 2026; on the same branch 02 got four big-holiday columns and the protocol of 03 a scorer in trips. See 6.10.
-- No second tuned model, AWS model or deployment yet. This is the biggest risk for the deadline.
+- `05b_model_huber.ipynb` is done (6 October 2026), done on branch `citibike-model-huber` and merged into `main` on 7 October 2026. See 6.11.
+- No ensemble, AWS model or deployment yet. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
@@ -337,10 +339,20 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 - Permutation importance on validation (MAPE points): tmax 17.2, precipitation 8.3, weekday 3.6, tmin 3.4, day_of_year 3.4, month 1.2, holiday 1.1; snow columns about 0.1-0.2 (little snow in 2024); wind -0.03 (unused).
 - Idea not yet tested: correct predictions by the recent error of the model (actual / predicted over the last published months m-4..m-2), possible at prediction time; test on the folds.
 
-### 6.11 Next steps (Citi Bike)
+### 6.11 Robust linear model: `05b_model_huber.ipynb`
+
+- Pipeline: `OneHotEncoder(drop="first")` on weekday, month, precipitation class; `PolynomialFeatures(2)` + scaling on `tmax_c`; scaled `precipitation_mm, snowfall_mm, snow_depth_mm`; median imputation + scaling on `tmin_c, wind_ms`; passthrough flags `holiday, christmas_week, snow_on_ground` and the four big holidays; `HuberRegressor(max_iter=1000)`.
+- Experiments (fold MAPE / validation MAPE): OLS baseline inputs 17.42 / 12.36; Huber baseline inputs 17.32 / 11.17 (validation MAE 10,768 vs 12,794, bias -1.0 vs -4.2); + big holidays 16.48 / 10.31; + extended weather 16.53 / 11.21; both 15.68 / 10.19 (chosen); log(1+mm) 15.80 / 10.30; OLS with the same inputs 15.77 / 11.15.
+- Grid epsilon {1.1, 1.35, 1.6, 2, 3} x alpha {1e-4 .. 1}: flat, 15.55-15.68. Folds chose epsilon 3.0, alpha 1.0 (15.55 vs default 15.68) but validation prefers the default (10.81 vs 10.19, MAE 11,645 vs 10,390). Kept the fold choice per protocol and reported the disagreement; proposal for later notebooks: a tie rule fixed in advance (keep the default unless tuning improves the fold MAPE by more than a set margin).
+- Results: validation MAE 11,645, MAPE 10.8%, within 20% 88.3% (highest), bias -2.7%; test MAE 15,837, MAPE 15.7%, within 20% 77.9%, bias +9.4%. `models/citibike_huber.joblib` (3 KB) + `.json`.
+- Outliers (`outliers_`): 91 training days (3%), 48 of them in 2020 (lockdown), storms (17 December 2020: 175 trips), 28 March 2015 (1,097 trips on a mild dry day, probably a system or data problem).
+- Coefficients (day effects): other federal holiday -21%, Thanksgiving -63%, day after -45%, Christmas Day -68%, New Year's Day -44%, other Christmas-week day -34%; rain classes -8% to -33% plus -5.4% per 9.5 mm; snowfall -7.0%, snow depth -6.4% per sd; wind -4.1% per 1.0 m/s.
+- Big holidays gone from the largest validation misses; remaining: rain timing, 23 and 28 December, 5 July 2024 (bridge day after Independence Day, +47%). Same monthly drift (2025 from June +9 to +17%, January/February 2026 +34.6 / +36.8%).
+
+### 6.12 Next steps (Citi Bike)
 
 1. `01a` is done. If `01b` needs row-level plots, add a fixed, seeded sample (e.g. 1% per month) of `clean_trips`.
 2. `01b` is done.
 3. `01c` is done (6.6).
 4. `02` is done (6.7).
-5. `03`, `04` and `05a` are done (6.8-6.10). Next: `05b` robust linear model (`HuberRegressor`, scaled, one-hot, with the big-holiday flags; prototype fold MAPE about 15.7%, validation about 10.2%), then possibly `05c` (ensemble of 05a + 05b and/or the recent-error correction), `06` AWS, `07` comparison. Then a deployment that predicts tomorrow's trips from a weather forecast (the baseline or 05a can already be deployed).
+5. `03`-`05b` are done (6.8-6.11). Next: `05c` (ensemble of 05a + 05b and a test of the recent-error correction against the drift, decided on the folds), `06` AWS, `07` comparison. Then a deployment that predicts tomorrow's trips from a weather forecast (the baseline or 05a can already be deployed).

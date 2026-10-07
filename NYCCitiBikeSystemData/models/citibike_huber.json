@@ -1,0 +1,38 @@
+{
+  "model": "citibike_huber",
+  "notebook": "05b_model_huber",
+  "estimator": "HuberRegressor in a Pipeline",
+  "input_columns": [
+    "weekday",
+    "month",
+    "precipitation",
+    "tmax_c",
+    "snow_on_ground",
+    "holiday",
+    "christmas_week",
+    "precipitation_mm",
+    "snowfall_mm",
+    "snow_depth_mm",
+    "tmin_c",
+    "wind_ms",
+    "thanksgiving",
+    "day_after_thanksgiving",
+    "christmas_day",
+    "new_years_day"
+  ],
+  "missing_values_allowed": [
+    "wind_ms"
+  ],
+  "output": "log(demand_ratio); predicted trips = exp(output) * level_12m",
+  "level_12m": "mean trips per day over the 12 months m-13 .. m-2 for a day in month m",
+  "hyperparameters": {
+    "epsilon": 3.0,
+    "alpha": 1.0,
+    "log_mm": false
+  },
+  "validation": {
+    "mae": 11645.33,
+    "mape": 10.81,
+    "bias_pct": -2.67
+  }
+}

@@ -106,4 +106,5 @@ of the monthly data (skipped without internet).
 | 03 | `03_model_baseline.ipynb` | Shared protocol for the model notebooks; baseline linear regression on `log(demand_ratio)` (validation MAPE 12.4%, test 17.4%); deployable pipeline `models/citibike_baseline.joblib` and the feature recipe for the API | Done |
 | 04 | `04_model_automl.ipynb` | PyCaret regression with the yearly folds: boosting best, Huber second; extended columns help the trees; chosen blend of gradient boosting + random forest + LightGBM (validation MAPE 9.5%, test 14.6%); `models/citibike_pycaret.pkl` (32 MB, git-ignored) | Done |
 | 05a | `05a_model_gradient_boosting.ipynb` | Tuned `HistGradientBoostingRegressor` on the extended columns (feature experiments: big holidays, recent growth, recency weights; random search scored in trips); validation MAPE 9.6%, test 15.1%; `models/citibike_gradient_boosting.joblib` (552 KB) | Done |
-| 05b+ | more tuned models, AWS model, comparison | Same sequence as the mushroom dataset | Planned |
+| 05b | `05b_model_huber.ipynb` | Robust linear model (`HuberRegressor` pipeline) with extended weather and big-holiday flags; outlier days and coefficients explained; validation MAPE 10.8%, test 15.7%; `models/citibike_huber.joblib` (3 KB) | Done |
+| 05c+ | ensemble, AWS model, comparison | Same sequence as the mushroom dataset | Planned |

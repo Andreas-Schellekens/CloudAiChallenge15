@@ -41,7 +41,9 @@ CloudAiChallenge15/
     ├── 04_model_automl.ipynb        PyCaret regression with the yearly folds (6.9)
     ├── 05a_model_gradient_boosting.ipynb   tuned HistGradientBoostingRegressor (6.10)
     ├── 05b_model_huber.ipynb        tuned robust linear model, HuberRegressor (6.11)
-    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline / citibike_gradient_boosting / citibike_huber .joblib + .json (committed); citibike_pycaret.pkl (git-ignored)
+    ├── 05c_model_ensemble.ipynb     equal-weight ensemble of 05a + 05b (6.12)
+    ├── 07_model_comparison.ipynb    comparison and choice of the deployed model (6.13)
+    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline / citibike_gradient_boosting / citibike_huber / citibike_ensemble .joblib + .json (committed); citibike_pycaret.pkl (git-ignored)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB),
                                   train/ validation/ test/ (daily CSVs), citibike_monthly.csv
 ```
@@ -64,7 +66,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
 - **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
-- Approximate run times (Citi Bike): `05b` about 30 s. `05a` about 5 min (random search about 4.5 min). `04` about 80 s. `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
+- Approximate run times (Citi Bike): `07` about 15 s, `05c` about 10 s, `05b` about 30 s. `05a` about 5 min (random search about 4.5 min). `04` about 80 s. `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Git:** default branch `main`, remote `origin` = `https://github.com/Andreas-Schellekens/CloudAiChallenge15.git`. Work on a feature branch (e.g. `mushroom-tuned-models`), commit, push, then merge into `main`. The GitHub CLI (`gh`) is **not installed**, so pull requests cannot be opened from the terminal; merges have been done locally with `git merge --no-ff` and pushed. Only commit, push or merge when the user asks.
 
 ## 4. Conventions
@@ -194,7 +196,8 @@ Observations to keep in mind: the test set is a little easier than the validatio
 - `04_model_automl.ipynb` is done (6 October 2026), done on branch `citibike-model-automl` and merged into `main` on 6 October 2026. See 6.9.
 - `05a_model_gradient_boosting.ipynb` is done (6 October 2026), done on branch `citibike-model-tuned` and merged into `main` on 6 October 2026; on the same branch 02 got four big-holiday columns and the protocol of 03 a scorer in trips. See 6.10.
 - `05b_model_huber.ipynb` is done (6 October 2026), done on branch `citibike-model-huber` and merged into `main` on 7 October 2026. See 6.11.
-- No ensemble, AWS model or deployment yet. This is the biggest risk for the deadline.
+- `05c_model_ensemble.ipynb` and `07_model_comparison.ipynb` are done (7 October 2026), done on branch `citibike-model-ensemble` and merged into `main` on 7 October 2026. **Deployed model: gradient boosting (05a)** (6.13, 6.14).
+- No AWS model (`06`) and no deployment yet. The user planned the deployments of **both** datasets (mushroom and Citi Bike) for Friday 9 October 2026. This is the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
@@ -349,10 +352,47 @@ Consequences (all handled in `01a`): trip duration must be computed from start/e
 - Coefficients (day effects): other federal holiday -21%, Thanksgiving -63%, day after -45%, Christmas Day -68%, New Year's Day -44%, other Christmas-week day -34%; rain classes -8% to -33% plus -5.4% per 9.5 mm; snowfall -7.0%, snow depth -6.4% per sd; wind -4.1% per 1.0 m/s.
 - Big holidays gone from the largest validation misses; remaining: rain timing, 23 and 28 December, 5 July 2024 (bridge day after Independence Day, +47%). Same monthly drift (2025 from June +9 to +17%, January/February 2026 +34.6 / +36.8%).
 
-### 6.12 Next steps (Citi Bike)
+### 6.12 Ensemble: `05c_model_ensemble.ipynb`
+
+- Loads the saved 05a and 05b models and refits `clone`s on the yearly folds (out-of-fold predictions; members reproduce 15.21 / 15.55). Correlation of their daily log errors 0.68.
+- Weight w for gradient boosting (log-scale average), w = 0..1: folds 15.55 (w=0) ... **14.29 (w=0.5, chosen)** ... 15.21 (w=1), flat 14.29-14.36 for w 0.4-0.6; validation 9.27 at 0.5 (minimum 9.20 at 0.6).
+- Recent-error correction (add strength x mean log error of months m-4..m-2, only months not fitted on): ensemble folds 14.29 -> 14.37 (0.5) / 15.44 (1.0), worse for every model; validation 9.27 -> 9.17 / 9.79. Rejected on the folds. Monthly error vs. mean of m-4..m-2: correlation 0.37 (68 months), mostly monthly weather noise.
+- Saved as `VotingRegressor([("gradient_boosting", Pipeline([select the 11 columns with ColumnTransformer(...).set_output(transform="pandas"), HGB])), ("huber", huber pipeline)], weights=[0.5, 0.5])`, fitted on all training days; identical to 0.5 x saved 05a + 0.5 x saved 05b (checked). 17 input columns. `models/citibike_ensemble.joblib` (557 KB) + `.json`.
+- Results: validation MAE 9,712, MAPE 9.3% (lowest), within 20% 90.2% (highest), bias -3.1%; test MAE 14,363, MAPE 14.4% (lowest), within 20% 81.4%, bias +8.8%. In MAE gradient boosting (validation 9,500) and the PyCaret blend (test 13,806) are lower.
+
+### 6.13 Comparison: `07_model_comparison.ipynb`
+
+- Reads `metrics.csv`, predicts the validation year with every saved model (asserts that the MAE reproduces `metrics.csv`; the PyCaret model is loaded only if `citibike_pycaret.pkl` exists; importing PyCaret changes the matplotlib style, so the notebook restores it).
+- Paired block bootstrap over the 53 weeks of 2024 (2,000 resamples, seed 42), reference = ensemble. MAPE differences: PyCaret +0.26 (-0.52 to 1.06), gradient boosting +0.36 (-0.39 to 1.12), Huber +1.55 (0.96 to 2.16), baseline +3.09 (2.03 to 4.37). MAE: gradient boosting -230 trips (-888 to +404). The three tree-based models cannot be told apart.
+- Practical (this laptop, one day per prediction): baseline 4.5 KB / 2.8 ms, Huber 3.2 KB / 3.7 ms, gradient boosting 552 KB / 4.9 ms, ensemble 557 KB / 9.2 ms, PyCaret 31 MB / 107 ms and needs PyCaret + LightGBM.
+- Rule fixed before the bootstrap: scikit-learn-only candidates; lowest validation MAPE wins unless a simpler candidate is not clearly worse (95% interval includes 0). Result: lowest = ensemble; gradient boosting not clearly worse -> **deployed model = gradient boosting (05a)**.
+- Test with the same bootstrap (reported only): ensemble 14.39, gradient boosting 15.08 (ensemble -0.69, -1.50 to 0.06), Huber 15.72, baseline 17.39 (+2.30, 0.78 to 3.87). Bias +7.8 to +9.4% for all.
+- Error analysis of the deployed model (validation / test MAPE): dry 7.4 / 12.5, very heavy rain 19.7 / 33.8 (validation bias -17.8); below 5 degrees 16.1 / 26.4 (test bias +17.2), above 25 degrees 6.3 / 10.5; big holidays about 34-36% (bias about +32 to +36%), Christmas week test +44.6%, working days test bias +10.1%. Ensemble vs deployed on special days (validation + test): big holidays 24.2 vs 34.9, Christmas week 32.2 vs 36.4, other holidays 12.3 vs 15.2, working days 11.7 vs 11.8: the strongest argument for switching to the ensemble (left to the team).
+- Test drift (30-day average): about 0 early 2025, +10 to +15% June-December 2025, +35 to +55% late January-February 2026, about 0 from April 2026. Days outside the plot: 25-26 January and 24 February 2026 (blizzard, predicted 2-6 times too high).
+
+### 6.14 Citi Bike model inventory and deployment contract
+
+| File (`NYCCitiBikeSystemData/models/`) | Notebook | In git | Size | Inputs | Validation MAPE / MAE | Test MAPE / MAE |
+|---|---|---|---|---|---|---|
+| `citibike_baseline.joblib` + `.json` | 03 linear regression | yes | 4 KB | 7 | 12.4% / 12,787 | 17.4% / 17,206 |
+| `citibike_pycaret.pkl` | 04 PyCaret blend gbr + rf + lightgbm | no | 32 MB | 14 | 9.5% / 9,658 | 14.6% / 13,806 |
+| `citibike_gradient_boosting.joblib` + `.json` | 05a HGB (**deployed**) | yes | 552 KB | 11 | 9.6% / 9,500 | 15.1% / 14,578 |
+| `citibike_huber.joblib` + `.json` | 05b Huber pipeline | yes | 3 KB | 16 | 10.8% / 11,645 | 15.7% / 15,837 |
+| `citibike_ensemble.joblib` + `.json` | 05c VotingRegressor 05a + 05b | yes | 557 KB | 17 | 9.3% / 9,712 | 14.4% / 14,363 |
+
+Deployment contract (for the API, frontend and retraining pipeline):
+1. Input: a date and a weather forecast for that day: `tmax_c`, `tmin_c`, `precipitation_mm`, `snowfall_mm`, `snow_depth_mm`, `wind_ms` (may be missing).
+2. Calendar columns from the date as in 02 section 5: `weekday` (0 = Monday), `month`, `day_of_year`, `holiday` (US federal, pandas `USFederalHolidayCalendar`), `christmas_week` (24 December - 1 January, not a federal holiday); for the ensemble also `thanksgiving`, `day_after_thanksgiving`, `christmas_day`, `new_years_day`, the precipitation class and `snow_on_ground`.
+3. `level_12m` = trips over months m-13..m-2 / days over those months, from `Data/citibike_monthly.csv` (03 `features_for_day` is the reference implementation; extend it with the extra weather and holiday columns).
+4. One-row DataFrame with the columns of `input_columns` in the JSON; prediction in trips = `exp(model.predict(row)[0]) * level_12m`.
+5. Retraining pipeline (still to build): it needs the daily files (git-ignored, under 1 MB) and the monthly file, not the 10 GB Parquet layer; retraining with the newest months is the natural remedy for the drift.
+
+### 6.15 Next steps (Citi Bike)
 
 1. `01a` is done. If `01b` needs row-level plots, add a fixed, seeded sample (e.g. 1% per month) of `clean_trips`.
 2. `01b` is done.
 3. `01c` is done (6.6).
 4. `02` is done (6.7).
-5. `03`-`05b` are done (6.8-6.11). Next: `05c` (ensemble of 05a + 05b and a test of the recent-error correction against the drift, decided on the folds), `06` AWS, `07` comparison. Then a deployment that predicts tomorrow's trips from a weather forecast (the baseline or 05a can already be deployed).
+5. `03`-`05c` and `07` are done (6.8-6.13). Deployed model: gradient boosting (05a); the team may switch to the ensemble (better on holidays, 6.13).
+6. `06_model_aws.ipynb` (required: at least one model trained and tuned on AWS SageMaker), then add it to `07`.
+7. Deployment following 6.14: API, frontend, hosting, retraining pipeline on push.

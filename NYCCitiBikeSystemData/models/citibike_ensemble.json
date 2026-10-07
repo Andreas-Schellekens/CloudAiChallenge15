@@ -1,0 +1,43 @@
+{
+  "model": "citibike_ensemble",
+  "notebook": "05c_model_ensemble",
+  "estimator": "VotingRegressor of citibike_gradient_boosting (05a) and citibike_huber (05b)",
+  "weights": {
+    "gradient_boosting": 0.5,
+    "huber": 0.5
+  },
+  "input_columns": [
+    "weekday",
+    "month",
+    "holiday",
+    "christmas_week",
+    "day_of_year",
+    "tmax_c",
+    "tmin_c",
+    "precipitation_mm",
+    "snowfall_mm",
+    "snow_depth_mm",
+    "wind_ms",
+    "precipitation",
+    "snow_on_ground",
+    "thanksgiving",
+    "day_after_thanksgiving",
+    "christmas_day",
+    "new_years_day"
+  ],
+  "categorical_columns": [
+    "weekday",
+    "month",
+    "precipitation"
+  ],
+  "missing_values_allowed": [
+    "wind_ms"
+  ],
+  "output": "log(demand_ratio); predicted trips = exp(output) * level_12m",
+  "level_12m": "mean trips per day over the 12 months m-13 .. m-2 for a day in month m",
+  "validation": {
+    "mae": 9712.1,
+    "mape": 9.27,
+    "bias_pct": -3.12
+  }
+}

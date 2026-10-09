@@ -416,8 +416,8 @@ Deployment contract (for the API, frontend and retraining pipeline):
 
 Live since 9 October 2026 (branch `deploy-full` and follow-ups, merged into `main`):
 
-- **Site:** <https://cloudaichallenge15-frontend.vercel.app/> (Vercel, root directory `deploy/frontend`)
-- **API:** <https://going-green-inference-api.onrender.com> (Render free tier, Docker, `render.yaml`); interactive docs at `/docs`
+- **Site:** <https://fieldcast-app.vercel.app/> (Vercel project `fieldcast`, root directory `deploy/frontend`). The old address <https://cloudaichallenge15-frontend.vercel.app/> still serves the same site. `fieldcast.vercel.app` was taken by another Vercel account.
+- **API:** <https://going-green-inference-api.onrender.com> (Render free tier, Docker, `render.yaml`). Render fixes a service's URL at creation, so this address cannot be renamed in place; visitors never see it because the site forwards `/api/*`, `/docs` and `/openapi.json` to it. Interactive docs: <https://fieldcast-app.vercel.app/docs>.
 
 Full contract and reasoning in `deploy/README.md`; account steps in `deploy/HOSTING.md`.
 
@@ -430,6 +430,9 @@ Full contract and reasoning in `deploy/README.md`; account steps in `deploy/HOST
 
 ### 7.2 Verified on 9 October 2026
 
+- Branding history: a generated leaf logo (`deploy/frontend/assets/going-green-logo.png`) was tried and rejected by the user; it was never committed or deployed. `deploy/frontend/assets/` (concepts and prompts, about 1.8 MB) is untracked and sits inside the deployed folder: do not commit it unless it is meant to be public.
+- **Fieldcast** is the brand (since 9 October 2026). Source material in `deploy/branding/`: board, logo, app icon, palette, typography, ribbon, UI example, colour specification in `README.md`, generation prompts in `PROMPTS.md`.
+- **Applied on the site (colours and logo only, the interface is unchanged):** palette tokens in `styles.css` (Iris `#6269F5` accent, Ink `#17191F`, Paper `#F3F2ED`, Mist `#E7E8F0`); the header shows the F mark and the wordmark; favicon and apple-touch icon. The source PNGs are AI-generated, slightly off-colour and have semi-transparent haze, so `deploy/frontend/brand/` holds cleaned shape masks (24 KB in total, from about 1 MB) and CSS paints them in the exact hex values; the wordmark switches Ink/Paper with the theme from one file. Iris is a mid-tone: no text colour reaches 4.5:1 on it, so buttons follow the brand rule (Ink on Iris, 4.06:1, enough for large text and graphics) and Iris used as small text is replaced by `--accent-text` (`#4A50D8` light, `#8F94FA` dark, both above 5.9:1). Moss is not used yet: there is no slot for a supporting accent without changing the interface.
 - Through the live site both models serve, and the stemless mushroom gives 0.950424, identical to the local run: production serves exactly the committed model.
 - CI built and smoke-tested the image (the first `deploy-full` run was cancelled by the next push; later runs succeeded).
 - Cold start: the free Render instance sleeps after about 15 minutes idle and needs about a minute to wake. The page retries the health check for about two minutes ("Waking the backend") and retries predictions on 502/504 and network errors; a 503 with a `detail` is the API answering on purpose and is shown at once. Tested by starting the API in the middle of a retry. The headline number is written directly when the tab is hidden, because animation frames do not run in background tabs. Tell the lecturer the first request may take a minute.

@@ -20,7 +20,7 @@ import { MUSHROOM_COLOURS } from './palette.js';
 
 const SEG = 56;              // segments around the cap
 const PTS = 26;              // points along the cap profile
-const GHOST = '#6878ff';     // wireframe colour for "not observed"
+const GHOST = '#6269f5';     // Iris: wireframe colour for "not observed"
 const VERDICT = { poisonous: '#e04848', edible: '#19b319' };
 
 /* ------------------------------------------------------------ cap shapes */

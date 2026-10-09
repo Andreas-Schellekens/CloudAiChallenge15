@@ -1,10 +1,14 @@
 /*
-  Going Green Inference - stylesheet
+  Fieldcast - stylesheet
 
   Rules that are easy to break later:
 
-  1. One accent colour, cobalt, used for every control on the page. It was
-     chosen because it cannot be mistaken for the status colours below.
+  1. Colours are the Fieldcast brand (deploy/branding): Iris #6269F5 accent,
+     Ink #17191F, Paper #F3F2ED, Mist #E7E8F0. Iris is a mid-tone, so no text
+     colour reaches 4.5:1 on it; following the brand, buttons use Ink on Iris
+     (4.06:1, fine for large text and graphics). Where Iris itself would be
+     small TEXT, --accent-text is used instead: a darker Iris in light mode and a
+     lighter one in dark mode, same hue, both above 5.9:1.
   2. Status colours (good, critical, warning) mean a state and nothing else.
      The edible / poisonous verdict always carries an icon and a word as well,
      because red and green are not reliably distinguishable for everyone.
@@ -24,21 +28,24 @@
 
 :root {
   color-scheme: light;
-  --bg:          #eef1f5;
+  --bg:          #f3f2ed;   /* Paper */
   --surface:     #ffffff;
-  --surface-2:   #f2f4f7;
-  --surface-3:   #e6e9ef;
+  --surface-2:   #e7e8f0;   /* Mist */
+  --surface-3:   #d9dbe6;
   --glass:       rgba(255, 255, 255, .74);
-  --ink:         #12151b;
-  --ink-2:       #48505c;
-  --ink-3:       #6f7784;
-  --line:        rgba(18, 21, 27, .10);
-  --line-strong: rgba(18, 21, 27, .20);
+  --ink:         #17191f;   /* Ink */
+  --ink-2:       #474b57;
+  --ink-3:       #656977;
+  --line:        rgba(23, 25, 31, .10);
+  --line-strong: rgba(23, 25, 31, .20);
 
-  --accent:      #3550f0;
-  --accent-ink:  #ffffff;
-  --accent-soft: rgba(53, 80, 240, .12);
-  --accent-glow: rgba(53, 80, 240, .28);
+  --brand:       #6269f5;   /* Iris: logo mark */
+  --wordmark:    #17191f;   /* Ink on light */
+  --accent:      #6269f5;   /* Iris */
+  --accent-ink:  #17191f;   /* Ink on Iris, as the brand asks */
+  --accent-text: #4a50d8;   /* Iris, darkened for small text: 6.1:1 on white */
+  --accent-soft: rgba(98, 105, 245, .14);
+  --accent-glow: rgba(98, 105, 245, .38);
 
   --good:        #0ca30c;
   --critical:    #d03b3b;
@@ -59,20 +66,23 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg:          #0b0d11;
-    --surface:     #14171d;
-    --surface-2:   #1b1f27;
-    --surface-3:   #252a34;
-    --glass:       rgba(20, 23, 29, .74);
-    --ink:         #f1f3f6;
-    --ink-2:       #b6bcc7;
-    --ink-3:       #8a919d;
-    --line:        rgba(255, 255, 255, .09);
-    --line-strong: rgba(255, 255, 255, .18);
-    --accent:      #7d8dff;
-    --accent-ink:  #0b0d14;
-    --accent-soft: rgba(125, 141, 255, .16);
-    --accent-glow: rgba(125, 141, 255, .30);
+    --bg:          #101217;
+    --surface:     #17191f;   /* Ink */
+    --surface-2:   #20232b;
+    --surface-3:   #2b2f39;
+    --glass:       rgba(23, 25, 31, .76);
+    --ink:         #f3f2ed;   /* Paper */
+    --ink-2:       #bdbfc9;
+    --ink-3:       #8d909c;
+    --line:        rgba(243, 242, 237, .09);
+    --line-strong: rgba(243, 242, 237, .18);
+    --brand:       #6269f5;
+    --wordmark:    #f3f2ed;   /* Paper on dark */
+    --accent:      #6269f5;
+    --accent-ink:  #17191f;
+    --accent-text: #8f94fa;   /* Iris, lightened for small text: 6.0:1 on Ink */
+    --accent-soft: rgba(98, 105, 245, .20);
+    --accent-glow: rgba(98, 105, 245, .40);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
     --shadow:    0 1px 2px rgba(0, 0, 0, .4), 0 16px 36px -18px rgba(0, 0, 0, .75);
     --shadow-lg: 0 2px 6px rgba(0, 0, 0, .45), 0 30px 70px -30px rgba(0, 0, 0, .9);
@@ -80,20 +90,23 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg:          #0b0d11;
-  --surface:     #14171d;
-  --surface-2:   #1b1f27;
-  --surface-3:   #252a34;
-  --glass:       rgba(20, 23, 29, .74);
-  --ink:         #f1f3f6;
-  --ink-2:       #b6bcc7;
-  --ink-3:       #8a919d;
-  --line:        rgba(255, 255, 255, .09);
-  --line-strong: rgba(255, 255, 255, .18);
-  --accent:      #7d8dff;
-  --accent-ink:  #0b0d14;
-  --accent-soft: rgba(125, 141, 255, .16);
-  --accent-glow: rgba(125, 141, 255, .30);
+  --bg:          #101217;
+  --surface:     #17191f;   /* Ink */
+  --surface-2:   #20232b;
+  --surface-3:   #2b2f39;
+  --glass:       rgba(23, 25, 31, .76);
+  --ink:         #f3f2ed;   /* Paper */
+  --ink-2:       #bdbfc9;
+  --ink-3:       #8d909c;
+  --line:        rgba(243, 242, 237, .09);
+  --line-strong: rgba(243, 242, 237, .18);
+  --brand:       #6269f5;
+  --wordmark:    #f3f2ed;   /* Paper on dark */
+  --accent:      #6269f5;
+  --accent-ink:  #17191f;
+  --accent-text: #8f94fa;   /* Iris, lightened for small text: 6.0:1 on Ink */
+  --accent-soft: rgba(98, 105, 245, .20);
+  --accent-glow: rgba(98, 105, 245, .40);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
   --shadow:    0 1px 2px rgba(0, 0, 0, .4), 0 16px 36px -18px rgba(0, 0, 0, .75);
   --shadow-lg: 0 2px 6px rgba(0, 0, 0, .45), 0 30px 70px -30px rgba(0, 0, 0, .9);
@@ -123,7 +136,7 @@ code {
   border-radius: 6px;
   background: var(--surface-2);
 }
-a { color: var(--accent); }
+a { color: var(--accent-text); }
 
 .sr-only {
   position: absolute !important;
@@ -161,25 +174,32 @@ a { color: var(--accent); }
   color: var(--ink);
   text-decoration: none;
 }
+/* The Fieldcast logo is drawn through CSS masks: the PNGs in brand/ hold only
+   the shapes (cleaned from deploy/branding), and the colour comes from the
+   tokens. That keeps the exact brand hex values and lets the wordmark turn from
+   Ink to Paper with the theme, from one file. */
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 34px; height: 34px;
+  width: 31px;
+  height: 28px;
   flex: none;
-  border-radius: 11px;
-  color: #fff;
-  font-size: 19px;
-  background: linear-gradient(150deg, #22c08a, #0c8f4a);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 6px 16px -8px rgba(12, 143, 74, .8);
+  background: var(--brand);
+  -webkit-mask: url("brand/fieldcast-mark.png") center / contain no-repeat;
+          mask: url("brand/fieldcast-mark.png") center / contain no-repeat;
   transition: transform .5s var(--spring);
 }
-.brand:hover .brand-mark { transform: rotate(-12deg) scale(1.06); }
-.brand-name {
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.brand:hover .brand-mark { transform: rotate(-8deg) scale(1.06); }
+.brand-word {
+  width: 100px;
+  height: 21px;
+  flex: none;
+  background: var(--wordmark);
+  -webkit-mask: url("brand/fieldcast-wordmark.png") left center / contain no-repeat;
+          mask: url("brand/fieldcast-wordmark.png") left center / contain no-repeat;
+}
+/* Forced-colours mode ignores mask colours; fall back to a readable name. */
+@media (forced-colors: active) {
+  .brand-mark, .brand-word { display: none; }
+  .brand::after { content: "Fieldcast"; font-weight: 700; }
 }
 
 /* The mode switch: a pill with a thumb that slides to the chosen side. */
@@ -557,7 +577,7 @@ body.no-3d #stage-canvas, body.no-3d .stage-hint { display: none; }
   background: var(--surface-2);
   border: 1px solid var(--line);
 }
-.tags li.flag { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.tags li.flag { color: var(--accent-text); background: var(--accent-soft); border-color: transparent; }
 
 /* ================================================================ panel */
 
@@ -635,7 +655,7 @@ body.no-3d #stage-canvas, body.no-3d .stage-hint { display: none; }
   color: var(--ink-2);
 }
 .group legend output { font-weight: 500; color: var(--ink-3); }
-.group legend output.set { color: var(--accent); font-weight: 650; }
+.group legend output.set { color: var(--accent-text); font-weight: 650; }
 
 /* Chips are real radio buttons: arrow keys move between them, and a screen
    reader announces the group and the choice. The input is hidden but focusable. */
@@ -714,7 +734,7 @@ body.no-3d #stage-canvas, body.no-3d .stage-hint { display: none; }
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   white-space: nowrap;
 }
 .slider[data-unset] .slider-value { color: var(--ink-3); font-weight: 500; }
@@ -853,7 +873,7 @@ input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.2); }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   cursor: pointer;
   font-size: inherit;
@@ -917,7 +937,7 @@ dialog h2 { font-size: 18px; letter-spacing: -0.02em; }
 
 @media (max-width: 640px) {
   .bar { grid-template-columns: auto 1fr auto; padding: 0 12px; gap: 8px; }
-  .brand-name, #api-status-text { display: none; }
+  .brand-word, #api-status-text { display: none; }
   .status { padding: 9px; }
   .switch { justify-self: center; }
   .switch button { padding: 7px 14px; }

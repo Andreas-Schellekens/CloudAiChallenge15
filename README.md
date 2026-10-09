@@ -13,10 +13,12 @@ Machine Learning / Cloud AI challenge – theme "Going green".
 | 3 | Mihai Constantin |
 | 4 | Zjef Schaeken |
 
-## Live demo
+## Live demo: Fieldcast
 
-- **Web interface:** <https://cloudaichallenge15-frontend.vercel.app/> - both models on one page
-- **API:** <https://going-green-inference-api.onrender.com/docs> - interactive documentation
+Observe. Model. Explore.
+
+- **Web interface:** <https://fieldcast-app.vercel.app/> - both models on one page
+- **API documentation:** <https://fieldcast-app.vercel.app/docs> - interactive
 
 The API runs on a free tier that sleeps when idle, so the **first request can take about a
 minute** while it wakes up. The page shows "Waking the backend" and retries on its own.

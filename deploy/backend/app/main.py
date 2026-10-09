@@ -34,8 +34,8 @@ logging.basicConfig(level=logging.INFO,
 log = logging.getLogger("ggi.api")
 
 app = FastAPI(
-    title="Going Green Inference",
-    description="Mushroom edibility and Citi Bike daily demand, "
+    title="Fieldcast API",
+    description="Observe. Model. Explore. Mushroom edibility and Citi Bike daily demand, "
                 "CloudAiChallenge15 (Thomas More).",
     version="1.0.0",
 )
@@ -135,7 +135,7 @@ def weather(date: dt.date = Query(..., description="YYYY-MM-DD")) -> dict:
 @app.get("/")
 def root() -> JSONResponse:
     return JSONResponse({
-        "service": "Going Green Inference",
+        "service": "Fieldcast API",
         "docs": "/docs",
         "endpoints": ["/api/health", "/api/mushroom", "/api/citibike", "/api/weather"],
     })

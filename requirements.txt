@@ -22,3 +22,6 @@ seaborn
 # 3.3.2 pulls in a compatible scikit-learn (1.4.x).
 pycaret==3.3.2
 scikit-learn
+# The XGBoost model of SecondaryMushroom/06 was trained in SageMaker's xgboost:1.7-1 container;
+# 07_model_comparison.ipynb loads it with the same version.
+xgboost==1.7.6

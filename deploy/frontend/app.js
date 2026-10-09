@@ -230,7 +230,25 @@ function apiUrl(path) {
   return base + path;
 }
 
-function postJson(path, body) {
+/*
+  A request that reaches a sleeping server fails at the proxy (502 or 504) or
+  at the network level, with no JSON body from our API. Those are retried while
+  the server wakes. A 503 WITH a detail message is different: that is our API
+  answering on purpose (for example a missing artefact), and retrying would not
+  change it, so it is shown immediately.
+*/
+function postJson(path, body, onRetry, attempt) {
+  attempt = attempt || 0;
+  var MAX_ATTEMPTS = 8;
+  var DELAY_MS = 8000;
+
+  function retryOrThrow(error) {
+    if (attempt + 1 >= MAX_ATTEMPTS) throw error;
+    if (onRetry) onRetry(attempt + 1);
+    return new Promise(function (resolve) { setTimeout(resolve, DELAY_MS); })
+      .then(function () { return postJson(path, body, onRetry, attempt + 1); });
+  }
+
   return fetch(apiUrl(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -239,6 +257,12 @@ function postJson(path, body) {
     return res.text().then(function (text) {
       var data = null;
       try { data = text ? JSON.parse(text) : null; } catch (e) { /* not json */ }
+
+      var waking = (res.status === 502 || res.status === 504) ||
+                   (res.status === 503 && !(data && data.detail));
+      if (waking) return retryOrThrow(new Error(
+        'The backend did not wake up in time (HTTP ' + res.status + '). Try again in a minute.'));
+
       if (!res.ok) {
         var msg = (data && (data.detail || data.error)) || ('HTTP ' + res.status);
         throw new Error(msg);
@@ -246,22 +270,40 @@ function postJson(path, body) {
       if (!data) throw new Error('The API returned a response that is not JSON.');
       return data;
     });
+  }, function () {
+    // Network-level failure: also what a sleeping host can look like.
+    return retryOrThrow(new Error('The backend could not be reached. Try again in a minute.'));
   });
 }
 
-function checkHealth() {
+/*
+  The API runs on a free host that sleeps after about fifteen minutes without
+  traffic and needs roughly a minute to wake. The first visitor after a quiet
+  spell would otherwise see "Backend unreachable" while the server is in fact
+  starting. So a failed health check is retried for about two minutes, and the
+  pill says what is happening instead of declaring the backend dead.
+*/
+var WAKE_ATTEMPTS = 12;
+var WAKE_DELAY_MS = 10000;
+var healthTimer = null;
+
+function checkHealth(attempt) {
+  attempt = attempt || 0;
   var pill = document.getElementById('api-status');
   var label = document.getElementById('api-status-text');
+  clearTimeout(healthTimer);
 
   if (state.demo) {
     pill.dataset.state = 'demo';
     label.textContent = 'Demo mode';
     return;
   }
-  pill.dataset.state = '';
-  label.textContent = 'Checking backend';
+  if (attempt === 0) {
+    pill.dataset.state = '';
+    label.textContent = 'Checking backend';
+  }
 
-  fetch(apiUrl('/api/health'), { method: 'GET' })
+  fetch(apiUrl('/api/health'), { method: 'GET', cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
     .then(function (info) {
       pill.dataset.state = 'online';
@@ -272,8 +314,14 @@ function checkHealth() {
       }
     })
     .catch(function () {
+      if (attempt + 1 < WAKE_ATTEMPTS) {
+        pill.dataset.state = 'demo';   // amber: neither online nor dead
+        label.textContent = 'Waking the backend';
+        healthTimer = setTimeout(function () { checkHealth(attempt + 1); }, WAKE_DELAY_MS);
+        return;
+      }
       pill.dataset.state = 'offline';
-      label.textContent = state.apiBase ? 'Backend unreachable' : 'No backend set';
+      label.textContent = 'Backend unreachable';
     });
 }
 
@@ -392,10 +440,16 @@ function setGaugeTick(tickId, haloId, fraction) {
 }
 
 /* Count the hero figure up to its value. Pure decoration, so it is skipped
-   when the viewer asks for reduced motion. */
+   when the viewer asks for reduced motion - and when the tab is hidden.
+
+   The hidden case matters more than it looks: requestAnimationFrame does not
+   run in a background tab, so the number would stay at its placeholder until
+   the visitor comes back. With a backend that can take a minute to wake, that
+   is exactly when people switch tabs. The headline number must never depend on
+   an animation having run. */
 function countUp(node, value, format) {
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) { node.innerHTML = format(value); return; }
+  if (reduced || document.hidden) { node.innerHTML = format(value); return; }
 
   var start = performance.now();
   var duration = 700;
@@ -432,13 +486,15 @@ function showError(resultId, message, isUserInput) {
   box.appendChild(el('strong', null,
     isUserInput ? 'Check the form. ' : 'Could not get a prediction. '));
   box.appendChild(document.createTextNode(message));
-  if (!isUserInput && !state.apiBase && !state.demo) {
-    box.appendChild(document.createTextNode(' No backend address is set yet - '));
-    var b = el('button', 'link-btn', 'set one now');
+  // An empty address is the normal deployed setting (Vercel forwards /api to
+  // the backend), so the hint only points at the address dialog as an option.
+  if (!isUserInput && !state.demo) {
+    box.appendChild(document.createTextNode(' To use a different backend, '));
+    var b = el('button', 'link-btn', 'change the API address');
     b.type = 'button';
     b.addEventListener('click', openDialog);
     box.appendChild(b);
-    box.appendChild(document.createTextNode(', or switch on demo mode to preview the interface.'));
+    box.appendChild(document.createTextNode('.'));
   }
   card.dataset.state = 'error';
 }
@@ -578,7 +634,13 @@ function wireForm(formId, resultId, path, demoFn, renderFn) {
 
     button.disabled = true;
     button.textContent = 'Working';
-    postJson(path, payload)
+    postJson(path, payload, function (attempt) {
+      button.textContent = 'Waking the backend (' + attempt + ')';
+    })
+      .then(function (res) {
+        checkHealth();  // the server is evidently up now; let the pill agree
+        return res;
+      })
       .then(renderFn)
       .catch(function (err) { showError(resultId, err.message); })
       .then(function () {

@@ -327,6 +327,9 @@ paket-files/
 # CodeRush personal settings
 .cr/personal
 
+# pytest cache (the deploy API tests, see deploy/backend/tests)
+.pytest_cache/
+
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc

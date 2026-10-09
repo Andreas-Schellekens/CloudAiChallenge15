@@ -1,0 +1,109 @@
+# Automated pipeline for the deployed models.
+#
+# The assignment asks for a pipeline that updates the model whenever new code is
+# pushed. This workflow is the ML department's half of that:
+#
+#   push  ->  contract tests  ->  retrain if training data is present  ->
+#             commit changed artefacts  ->  Render rebuilds the API (autoDeploy)
+#             and Vercel rebuilds the front end
+#
+# The tests run on every push and pull request, because the thing most likely to
+# break the deployment is not the model but the contract around it: the stem
+# rule, the decision threshold, the calendar columns.
+#
+# Retraining only happens on main, and only when the training inputs are present
+# in the checkout. They are git-ignored by default (see CLAUDE.md section 4), so
+# the step reports that it skipped rather than failing the build.
+
+name: models
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force_retrain:
+        description: "Retrain even if the metrics do not improve"
+        type: boolean
+        default: false
+
+concurrency:
+  group: models-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+          cache: pip
+
+      - name: Install the API dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r deploy/backend/requirements.txt
+          pip install pytest httpx
+
+      - name: Run the contract tests
+        working-directory: deploy/backend
+        env:
+          LOKY_MAX_CPU_COUNT: "2"
+        run: python -m pytest -q
+
+      - name: Check the API image builds
+        run: docker build -f deploy/backend/Dockerfile -t ggi-api:ci .
+
+      - name: Check the image actually serves
+        run: |
+          docker run -d --name ggi -p 8000:8000 ggi-api:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/api/health > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8000/api/health | tee health.json
+          python -c "import json;d=json.load(open('health.json'));assert d['models'],'no models served';print('serving:',d['models'])"
+          docker rm -f ggi
+
+  retrain:
+    name: Retrain and commit
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+          cache: pip
+
+      - name: Install the training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r deploy/backend/requirements.txt
+
+      - name: Retrain the deployed models
+        env:
+          LOKY_MAX_CPU_COUNT: "2"
+          FORCE_RETRAIN: ${{ inputs.force_retrain }}
+        run: python tools/retrain.py
+
+      - name: Commit any updated artefacts
+        run: |
+          if git diff --quiet -- SecondaryMushroom/models NYCCitiBikeSystemData/models; then
+            echo "No artefact changed; nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add SecondaryMushroom/models NYCCitiBikeSystemData/models
+          git commit -m "Retrain deployed models [skip ci]"
+          git push

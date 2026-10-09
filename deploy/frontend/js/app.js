@@ -1,5 +1,5 @@
 /*
-  Going Green Inference - page logic
+  Fieldcast - page logic
 
   The rule behind most of this file: the page does not know how the models
   work. It collects raw inputs, posts them, and shows the answer. The stem rule,

@@ -19,7 +19,7 @@ import { approach, tween, ease, seeded, reducedMotion } from './motion.js';
 const NORMAL_RIDERS = 24;     // riders on screen for a ratio of 1.0
 const MAX_RIDERS = 72;
 const LANES = [3.82, 4.18];   // inner lane rides clockwise, outer anticlockwise
-const SCAN = '#6878ff';
+const SCAN = '#6269f5';      // Iris
 
 /* ------------------------------------------------------------ weather colours */
 

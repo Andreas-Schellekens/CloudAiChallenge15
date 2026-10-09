@@ -21,6 +21,16 @@ CloudAiChallenge15/
 ├── README.md                     group name, members, setup
 ├── project assignment.md         the assignment (source of truth for requirements)
 ├── requirements.txt              Python dependencies (pycaret pinned, see section 3)
+├── render.yaml                   Render blueprint for the API (section 7)
+├── .github/workflows/deploy.yml  pipeline: tests, image build, retrain, commit (section 7)
+├── tools/
+│   ├── run_notebook.py           headless notebook runner (jupyter_client), see section 3
+│   └── retrain.py                refits the deployed models from their recorded hyperparameters
+├── deploy/                       the deployment (section 7)
+│   ├── README.md                 API contract and the reasoning behind the design
+│   ├── HOSTING.md                hosting checklist (Vercel, Render, GitHub Actions)
+│   ├── frontend/                 static page: index.html, styles.css, app.js, vercel.json
+│   └── backend/                  FastAPI: app/ (main, models, contracts, weather), tests/, Dockerfile
 ├── SecondaryMushroom/
 │   ├── README.md                 data files, model files, notebook list with status
 │   ├── 01_eda.ipynb ... 07_model_comparison.ipynb   numbered notebooks (run in order)
@@ -45,12 +55,12 @@ CloudAiChallenge15/
     ├── 05b_model_huber.ipynb        tuned robust linear model, HuberRegressor (6.11)
     ├── 05c_model_ensemble.ipynb     equal-weight ensemble of 05a + 05b (6.12)
     ├── 07_model_comparison.ipynb    comparison and choice of the deployed model (6.13)
-    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline / citibike_gradient_boosting / citibike_huber / citibike_ensemble .joblib + .json (committed); citibike_pycaret.pkl (git-ignored)
+    ├── models/                   citibike_daily_dataset.json, metrics.csv, citibike_baseline / citibike_gradient_boosting / citibike_huber / citibike_ensemble .joblib + .json (committed), citibike_monthly.csv (committed copy shipped with the API, section 7); citibike_pycaret.pkl (git-ignored)
     └── Data/                     git-ignored: trip CSVs (about 61 GB), parquet/ (about 10 GB), weather/ (18 MB),
                                   train/ validation/ test/ (daily CSVs), citibike_monthly.csv
 ```
 
-There is no `deploy/` folder yet (the mushroom README mentions it as planned).
+The deployment lives in `deploy/` and is live; see section 7.
 
 ## 3. Environment and tooling
 
@@ -66,7 +76,7 @@ There is no `deploy/` folder yet (the mushroom README mentions it as planned).
   - Charts in the Citi Bike notebooks use one style defined in the setup cell of `01a` (`INK_*` colours, `plt.rcParams`, the `DIVERGING` red-grey-blue colormap; formats coloured blue / orange / aqua). Reuse it in `01b`/`01c` so the notebooks look alike.
   - DuckDB in a notebook: run `con.execute("SET enable_progress_bar = false")`, otherwise queries write progress widgets into the outputs. `first`, `last`, `name` and `months` are reserved words in DuckDB SQL; don't use them as column aliases.
   - DuckDB `read_csv` guesses the CSV dialect from a sample of each file; always pass `delim=',', quote='"', escape='"'` for the Citi Bike files (some station names are quoted and contain commas).
-- **Running notebooks headlessly:** there is no runner script in the repo. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
+- **Running notebooks headlessly:** `tools/run_notebook.py <notebook>` (added 9 October 2026; `--dry-run` lists the cells, `--start-at N` resumes). It drives a kernel through `jupyter_client` as described below, with the notebook's folder as working directory, stops at the first error and writes the outputs back. A re-run rewrites the notebook's outputs, so do not commit a re-run of someone else's notebook by accident. Write a small `jupyter_client` loop: start `KernelManager(kernel_name="python3")` with `cwd` = the notebook's folder (all paths in the notebooks are relative to `SecondaryMushroom/`), run `%matplotlib inline`, execute each code cell with `execute_interactive`, collect stream / execute_result / display_data / error outputs into the cell with `nbformat`, stop at the first error, and write the notebook back. Editing cells programmatically with `nbformat` is fine (keep cell ids).
 - Approximate run times (mushroom): 02 about 80 s, 03 about 5 s, 04 about 2.5 min, 05a about 4 min, 05b about 4 min, 05c about 40 s, 07 about 25 s.
 - Approximate run times (Citi Bike): `07` about 15 s, `05c` about 10 s, `05b` about 30 s. `05a` about 5 min (random search about 4.5 min). `04` about 80 s. `03` about 5 s. `02` about 70 s (one 55 s pass over the Parquet files). `01c` about 35 s. `01b` about 7-8 min. `01a` about 19 min on the first run (CSV to Parquet conversion about 4 min, duplicate search about 1 min, CSV line counts about 1.5 min, final key check about 2 min, the data-quality section about 7 min and the overview about 2.5 min of full passes over the Parquet files; the completeness section takes seconds); later runs skip the conversion (about 15.5 min).
 - **Full re-run, 9 October 2026** (branch `rerun-all-notebooks`, by Mihai Constantin on a second laptop with a fresh `.venv` on Python 3.11.9 and the same package versions): all 18 notebooks ran without errors and reproduce the earlier results. All model JSON files are identical, the deployed `mushroom_gradient_boosting.joblib` and `citibike_gradient_boosting.joblib` are byte-identical, and `metrics.csv` differs only in rounding of the linear baselines (mushroom baseline validation AUC 0.703817 vs 0.703802; Citi Bike baseline MAE within 0.4 trips). The Parquet layer rebuilt on that laptop matched 23 of 23 checks against the 01a outputs (trips per year and format, NULL profile, duplicates, cleaned trips). Run the two datasets one after the other: in parallel, the CPU-heavy notebooks became 2-10 times slower (mushroom 05b took 41 min). Prediction timings depend on the machine; the 07 notebooks quote the re-run's timings and their ratios.
@@ -163,7 +173,7 @@ One fixed stratified split, made only in `02_data_preparation.ipynb` section 6 (
 3. Build a one-row DataFrame with the 11 columns in the order of `input_columns` in the JSON; `has_stem` as float.
 4. `p = model.predict_proba(row)[:, 1]`; poisonous if `p >= threshold` from the JSON. Show the probability as well as the verdict (07 found a blind spot: large mushrooms with a stem and no striking features).
 5. Unknown categories do not crash: the gradient boosting pipeline's `OrdinalEncoder` maps them to NaN, the preprocessor's one-hot encoder to "infrequent".
-6. Retraining pipeline (still to build): it must re-run the data preparation and the deployed model's notebook logic (or an equivalent script) on push, regenerate the git-ignored model files if needed, and keep the threshold rule (validation set) intact.
+6. Retraining pipeline: built, see section 7. It refits the recorded hyperparameters and keeps the threshold from the JSON; it does not re-choose the threshold.
 
 ### 5.6 Notebook status and key findings
 
@@ -184,7 +194,7 @@ Observations to keep in mind: the test set is a little easier than the validatio
 ### 5.7 Next steps (mushroom)
 
 1. Run `06_model_aws.ipynb` in the AWS Academy lab (`README_AWS.md`), then integrate the results (README_AWS step 8): model `.tar.gz` + JSON + trials CSV into `models/`, metric rows into `metrics.csv`, `xgboost==1.7.6` in `requirements.txt`, the model in `07` (behind `mushroom_preprocessor.joblib`, check against `mushroom_xgboost_predictions.csv`), the interpretation cells of 06, READMEs and 5.4/5.6.
-2. Deployment around `mushroom_gradient_boosting.joblib`: API (the assignment rewards a non-Python language and no Streamlit), custom frontend, hosting (e.g. Oracle free tier), automated retraining pipeline on push (e.g. GitHub Actions).
+2. Deployment: done and live (section 7). Open extension: an API in a language other than Python.
 3. Optional extras from the assignment: unsupervised learning (e.g. clustering the mushrooms) with an explanation of what it shows.
 
 ## 6. NYCCitiBikeSystemData
@@ -201,7 +211,7 @@ Observations to keep in mind: the test set is a little easier than the validatio
 - `05a_model_gradient_boosting.ipynb` is done (6 October 2026), done on branch `citibike-model-tuned` and merged into `main` on 6 October 2026; on the same branch 02 got four big-holiday columns and the protocol of 03 a scorer in trips. See 6.10.
 - `05b_model_huber.ipynb` is done (6 October 2026), done on branch `citibike-model-huber` and merged into `main` on 7 October 2026. See 6.11.
 - `05c_model_ensemble.ipynb` and `07_model_comparison.ipynb` are done (7 October 2026), done on branch `citibike-model-ensemble` and merged into `main` on 7 October 2026. **Deployed model: gradient boosting (05a)** (6.13, 6.14).
-- No AWS model (`06`) and no deployment yet. The user planned the deployments of **both** datasets (mushroom and Citi Bike) for Friday 9 October 2026. This is the biggest risk for the deadline.
+- Deployment of both models is live since 9 October 2026 (section 7). **Still open: an AWS model for Citi Bike (`06`)**, an MVP requirement; for the mushroom, `06` is prepared but has not been run in the AWS lab yet (5.7). This is now the biggest risk for the deadline.
 - Agreed with the user: the EDA covers all years 2013–2026; external weather data (e.g. NOAA Central Park or Open-Meteo, downloaded by code) may be added in the pattern/hypothesis notebooks; statistics on trip level use effect sizes and confidence intervals, tests on daily aggregates or a fixed sample (p-values are meaningless at n = 323 million).
 
 ### 6.2 Getting the data: `00_download_citibike.py`
@@ -390,7 +400,7 @@ Deployment contract (for the API, frontend and retraining pipeline):
 2. Calendar columns from the date as in 02 section 5: `weekday` (0 = Monday), `month`, `day_of_year`, `holiday` (US federal, pandas `USFederalHolidayCalendar`), `christmas_week` (24 December - 1 January, not a federal holiday); for the ensemble also `thanksgiving`, `day_after_thanksgiving`, `christmas_day`, `new_years_day`, the precipitation class and `snow_on_ground`.
 3. `level_12m` = trips over months m-13..m-2 / days over those months, from `Data/citibike_monthly.csv` (03 `features_for_day` is the reference implementation; extend it with the extra weather and holiday columns).
 4. One-row DataFrame with the columns of `input_columns` in the JSON; prediction in trips = `exp(model.predict(row)[0]) * level_12m`.
-5. Retraining pipeline (still to build): it needs the daily files (git-ignored, under 1 MB) and the monthly file, not the 10 GB Parquet layer; retraining with the newest months is the natural remedy for the drift.
+5. Retraining pipeline: built (section 7). It needs the daily files and the monthly file, not the 10 GB Parquet layer. The daily files are still git-ignored, so in CI the retrain step currently reports `skipped(no training data)`.
 
 ### 6.15 Next steps (Citi Bike)
 
@@ -400,4 +410,32 @@ Deployment contract (for the API, frontend and retraining pipeline):
 4. `02` is done (6.7).
 5. `03`-`05c` and `07` are done (6.8-6.13). Deployed model: gradient boosting (05a); the team may switch to the ensemble (better on holidays, 6.13).
 6. `06_model_aws.ipynb` (required: at least one model trained and tuned on AWS SageMaker), then add it to `07`.
-7. Deployment following 6.14: API, frontend, hosting, retraining pipeline on push.
+7. Deployment: done and live (section 7).
+
+## 7. Deployment
+
+Live since 9 October 2026 (branch `deploy-full` and follow-ups, merged into `main`):
+
+- **Site:** <https://cloudaichallenge15-frontend.vercel.app/> (Vercel, root directory `deploy/frontend`)
+- **API:** <https://going-green-inference-api.onrender.com> (Render free tier, Docker, `render.yaml`); interactive docs at `/docs`
+
+Full contract and reasoning in `deploy/README.md`; account steps in `deploy/HOSTING.md`.
+
+### 7.1 How it fits together
+
+- **Frontend** (`deploy/frontend/`): static HTML, CSS and JavaScript, no framework, no build step. It never derives a model feature: the stem rule, the calendar columns and `level_12m` exist only in the backend, so the page cannot disagree with the model after a retrain. Vercel rewrites `/api/*` to the Render API (`vercel.json`), so the page calls its own origin: no address to configure and no CORS. The API-address dialog (status pill) is only for pointing the page elsewhere during development; leave it empty on the live site. Demo mode shows the layout without a backend; it is off by default and every result says it is not a model prediction.
+- **Backend** (`deploy/backend/`): FastAPI loading the committed `mushroom_gradient_boosting.joblib` and `citibike_gradient_boosting.joblib`, so production runs the notebooks' preprocessing. `app/contracts.py` is the single implementation of 5.5 and 6.14. Endpoints: `GET /api/health`, `POST /api/mushroom`, `POST /api/citibike`, `GET /api/weather?date=` (NOAA station USW00094728, observed weather with a few days of lag). Health degrades per model instead of refusing to start. Versions in `deploy/backend/requirements.txt` are pinned to the training versions.
+- **`citibike_monthly.csv`:** `02` writes it to `Data/` (git-ignored), so a committed copy lives in `NYCCitiBikeSystemData/models/`; the API reads that first and falls back to `Data/`. **After re-running `02`, copy the new file to `models/` and commit it**, or the API keeps serving the old levels. Months after the last published one use the most recent level (`level_source` in the response says so).
+- **Pipeline** (`.github/workflows/deploy.yml`): on every push and pull request, the contract tests (`deploy/backend/tests`, 21 tests) and a Docker build plus a container smoke test; on `main` only, `tools/retrain.py` and a commit of changed artefacts. Render (`autoDeploy`) and Vercel then redeploy from the push. Retraining refits the hyperparameters recorded in the model JSON and only replaces an artefact that is not worse on validation (`FORCE_RETRAIN` overrides). It fits Citi Bike on days with trips only (`total > 0`), exactly as 03 and 05a do, and reproduces the committed model's validation MAPE (9.64).
+
+### 7.2 Verified on 9 October 2026
+
+- Through the live site both models serve, and the stemless mushroom gives 0.950424, identical to the local run: production serves exactly the committed model.
+- CI built and smoke-tested the image (the first `deploy-full` run was cancelled by the next push; later runs succeeded).
+- Cold start: the free Render instance sleeps after about 15 minutes idle and needs about a minute to wake. The page retries the health check for about two minutes ("Waking the backend") and retries predictions on 502/504 and network errors; a 503 with a `detail` is the API answering on purpose and is shown at once. Tested by starting the API in the middle of a retry. The headline number is written directly when the tab is hidden, because animation frames do not run in background tabs. Tell the lecturer the first request may take a minute.
+
+### 7.3 Open
+
+- **Retraining has no data in CI:** the training CSVs (mushroom cleaned train and validation, Citi Bike daily files; together a few MB) are git-ignored, so the retrain step reports `skipped(no training data)`. Committing them would make retraining real but changes the rule in section 4: a team decision.
+- **Actions write permission:** the retrain job pushes commits, which needs Settings, Actions, General, "Read and write permissions" on the repository.
+- **Extension not taken:** an API in a language other than Python. Kept in Python so the committed scikit-learn pipelines run the exact notebook preprocessing; a port would mean exporting to ONNX and re-implementing the cleaning rules.

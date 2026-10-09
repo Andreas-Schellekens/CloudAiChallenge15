@@ -416,8 +416,8 @@ Deployment contract (for the API, frontend and retraining pipeline):
 
 Live since 9 October 2026 (branch `deploy-full` and follow-ups, merged into `main`):
 
-- **Site:** <https://fieldcast-app.vercel.app/> (Vercel project `fieldcast`, root directory `deploy/frontend`). The old address <https://cloudaichallenge15-frontend.vercel.app/> still serves the same site. `fieldcast.vercel.app` was taken by another Vercel account.
-- **API:** <https://going-green-inference-api.onrender.com> (Render free tier, Docker, `render.yaml`). Render fixes a service's URL at creation, so this address cannot be renamed in place; visitors never see it because the site forwards `/api/*`, `/docs` and `/openapi.json` to it. Interactive docs: <https://fieldcast-app.vercel.app/docs>.
+- **Site:** <https://fieldcast.flipforward.be/> (custom domain; DNS of `flipforward.be` is external, a `CNAME fieldcast -> cname.vercel-dns.com` record at that provider, see `deploy/HOSTING.md`) and <https://fieldcast-app.vercel.app/> (Vercel project `fieldcast`, root directory `deploy/frontend`). The old address <https://cloudaichallenge15-frontend.vercel.app/> still serves the same site. `fieldcast.vercel.app` was taken by another Vercel account.
+- **API:** <https://going-green-inference-api.onrender.com> (Render free tier, Docker, `render.yaml`). Render fixes a service's URL at creation, so this address cannot be renamed in place; visitors never see it because the site forwards `/api/*`, `/docs` and `/openapi.json` to it. Interactive docs: <https://fieldcast.flipforward.be/docs>.
 
 Full contract and reasoning in `deploy/README.md`; account steps in `deploy/HOSTING.md`.
 

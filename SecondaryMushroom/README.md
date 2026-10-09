@@ -32,6 +32,7 @@ The model notebooks add:
 | `models/mushroom_random_forest.joblib` + `.json` | Tuned random forest pipeline (preprocessor + forest, 26 MB compressed; the `.joblib` is not in git: run `05a_model_random_forest.ipynb` to create it) and its decision threshold (0.161, for 90% recall on poisonous) |
 | `models/mushroom_gradient_boosting.joblib` + `.json` | **Deployed model.** Tuned gradient boosting pipeline (ordinal encoder + `HistGradientBoostingClassifier`, 1.0 MB) and its decision threshold (0.139) |
 | `models/mushroom_ensemble.joblib` + `.json` | Stacked ensemble of the forest and the gradient boosting model (27 MB, not in git: run `05c_model_ensemble.ipynb`) and its threshold (0.130) |
+| `models/mushroom_xgboost_sagemaker.tar.gz` + `.json` | XGBoost trained and tuned on AWS SageMaker (06), the file as SageMaker saved it (0.7 MB) and its threshold (0.116). Takes the 64 prepared columns, so it is used behind `mushroom_preprocessor.joblib`; loading needs `xgboost==1.7.6`. `mushroom_xgboost_tuning_jobs.csv` lists the 20 trials of the search |
 | `models/metrics.csv` | Validation and test metrics of every model (one row per model, set and threshold; column `split` = validation/test, column `notebook` says where it came from), read by `07_model_comparison.ipynb` |
 
 All deployable pipelines take the same cleaned, readable columns (as in `mushroom_cleaned_<set>.csv`) and return `predict_proba`. A mushroom is called poisonous when its probability is **at least the threshold in the model's JSON file** (chosen on the validation set); `predict()` would use 0.5.
@@ -47,8 +48,8 @@ All deployable pipelines take the same cleaned, readable columns (as in `mushroo
 | 05a | `05a_model_random_forest.ipynb` | Random forest with own search space (deep trees), threshold for 90% recall on validation, label-noise experiment | Done |
 | 05b | `05b_model_gradient_boosting.ipynb` | `HistGradientBoostingClassifier`: native missing values/categoricals vs. our preprocessing, tuning, threshold | Done |
 | 05c | `05c_model_ensemble.ipynb` | Heterogeneous ensemble (forest, boosting, KNN, logistic regression): diversity check, averaging vs. stacking | Done |
-| 06 | `06_model_aws.ipynb` + `06_prepare_aws_upload.py` | XGBoost trained and tuned on AWS SageMaker (built-in algorithm, Bayesian tuning job with 20 trials on an 80/20 hold-out of train, threshold and evaluation as in 05a-05c). Runs in an AWS Academy lab, not locally: **see [`README_AWS.md`](README_AWS.md)** for every step | Ready to run in the lab (not yet run) |
-| 07 | `07_model_comparison.ipynb` | Comparison on the same rows (paired bootstrap), choice of the deployed model, permutation importance, error analysis | Done (without the AWS model) |
+| 06 | `06_model_aws.ipynb` + `06_prepare_aws_upload.py` | XGBoost trained and tuned on AWS SageMaker, run in an AWS Academy lab (guide: [`README_AWS.md`](README_AWS.md)). The lab could not create tuning jobs, so the search ran as 20 SageMaker training jobs (random, seed 42) on an 80/20 hold-out of train. Validation AUC 0.811, test AUC 0.835 (21 of 284 poisonous missed at threshold 0.116) | Done |
+| 07 | `07_model_comparison.ipynb` | Comparison of all models on the same rows (paired bootstrap), including the SageMaker model; choice of the deployed model, permutation importance, error analysis | Done |
 
 ## Folder structure
 
@@ -57,6 +58,7 @@ SecondaryMushroom/
 ├── Data/          raw and prepared data (not in git)
 ├── models/        saved models (.pkl, large files gitignored)
 ├── README_AWS.md  how to run 06_model_aws.ipynb in the AWS Academy lab
+├── images/aws/    screenshots of the SageMaker run
 ├── deploy/        API backend + frontend
 └── 0X_*.ipynb     numbered notebooks
 ```

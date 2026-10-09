@@ -6,6 +6,8 @@ This guide covers the whole procedure: what to prepare on your laptop, how to st
 
 > **Which "Canvas"?** This guide uses Canvas only as the place where the AWS Academy course and its labs are started. *Amazon SageMaker Canvas* is something else: a no-code AutoML tool inside SageMaker. We do not use it, because it cannot run our notebook and it chooses the model itself, while the assignment asks for a model that we tune ourselves (and our AutoML step is already notebook 04).
 
+> **Run on 9 October 2026** in the AWS Academy lab `3_6-machinelearning` (results in `06_model_aws.ipynb`, compared in `07`). That lab's role could not create a bucket, a tuning job, list jobs or delete files: we used the lab's own bucket (found in the lab's notebook) and the notebook's fallback ran the search as 20 separate training jobs. See the troubleshooting table.
+
 ---
 
 ## What happens where
@@ -191,6 +193,7 @@ Also download any screenshots you took. Only then end the lab with **End Lab** o
 | `NoCredentialsError` or `ExpiredToken` (section 3 or later) | the lab session has expired | **Start Lab** again on Canvas, then re-run the notebook from the top. Running jobs are picked up again (step 6) |
 | `Could not create bucket ...` (section 3) | the lab does not allow new buckets | the error lists the existing buckets: put one of them (or the one from the lab's notebook) in `BUCKET` |
 | `AccessDenied ... iam:PassRole` (sections 8 or 10) | the job may not use the role that was found | put the role ARN of the lab's notebook in `ROLE_ARN`, e.g. `"arn:aws:iam::<account>:role/LabRole"` (the account number is printed in section 3) |
+| `AccessDeniedException ... CreateHyperParameterTuningJob` (section 8) | the lab's role may start training jobs but not tuning jobs | nothing to do: the notebook catches this and runs the same search as 20 separate training jobs (random combinations, seed 42). Keep the notebook open while it runs, because it starts each next trial itself |
 | `ResourceLimitExceeded` (section 8) | too many machines at the same time for this lab | `MAX_PARALLEL_JOBS = 1`, re-run section 2 and then sections 8 and on |
 | `ValidationException ... instance type` or `not authorized ... instance type` | this instance type is not allowed in the lab | use the instance type of the lab's own notebook in `INSTANCE_TYPE` |
 | All trials fail (section 8: "No trial succeeded") | usually a data or permission error inside the jobs | open a failed job in the console (step 6) and read *Failure reason* |

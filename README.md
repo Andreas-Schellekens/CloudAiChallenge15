@@ -1,6 +1,15 @@
-# CloudAiChallenge15
+<p align="center">
+  <img src="deploy/frontend/brand/apple-touch-icon.png" width="72" alt="Fieldcast logo">
+</p>
 
-Machine Learning / Cloud AI challenge – theme "Going green".
+# Fieldcast
+
+**Observe. Model. Explore.** Two machine-learning models with a live web interface: is a
+mushroom edible or poisonous, and how many Citi Bike trips will New York ride on a given day?
+
+**Live site: <https://fieldcast.flipforward.be/>**
+
+Machine Learning / Cloud AI challenge – theme "Going green" (Thomas More, group CloudAiChallenge15).
 
 ## Group
 
@@ -17,8 +26,9 @@ Machine Learning / Cloud AI challenge – theme "Going green".
 
 Observe. Model. Explore.
 
-- **Web interface:** <https://fieldcast-app.vercel.app/> - both models on one page
-- **API documentation:** <https://fieldcast-app.vercel.app/docs> - interactive
+- **Web interface:** <https://fieldcast.flipforward.be/> - both models on one page
+  (also at <https://fieldcast-app.vercel.app/>)
+- **API documentation:** <https://fieldcast.flipforward.be/docs> - interactive
 
 The API runs on a free tier that sleeps when idle, so the **first request can take about a
 minute** while it wakes up. The page shows "Waking the backend" and retries on its own.

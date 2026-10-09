@@ -4,7 +4,7 @@
 
 | Step | Status |
 |---|---|
-| 1. Frontend on Vercel | Done: <https://fieldcast-app.vercel.app/> (project `fieldcast`; the old <https://cloudaichallenge15-frontend.vercel.app/> still works) |
+| 1. Frontend on Vercel | Done: <https://fieldcast.flipforward.be/> (custom domain) and <https://fieldcast-app.vercel.app/> (project `fieldcast`; the old <https://cloudaichallenge15-frontend.vercel.app/> still works) |
 | 2. Backend on Render | Done: <https://going-green-inference-api.onrender.com> (address fixed at creation, see below) |
 | 3. Point the two at each other | Done: `/api` rewrite in `deploy/frontend/vercel.json` |
 | 4. Actions write permission | Check: needed for the retrain job to push |
@@ -16,6 +16,11 @@ renaming the service only changes the dashboard label. It does not matter for vi
 the site forwards `/api`, `/docs` and `/openapi.json` to Render, so the Render address appears
 nowhere on the site. A truly new address would mean a second service (`name:` in `render.yaml`
 plus a new Blueprint), then pointing the three rewrites in `vercel.json` at it.
+
+**Custom domain (9 October 2026).** `fieldcast.flipforward.be` is added to the Vercel project.
+The DNS of `flipforward.be` is not hosted by Vercel (nameservers `ns.zxcs.be/.eu/.nl`), so it
+needs one record at that DNS provider: `CNAME fieldcast -> cname.vercel-dns.com`. Vercel then
+issues the HTTPS certificate on its own.
 
 The rest of this file is the procedure, kept so the setup can be rebuilt.
 

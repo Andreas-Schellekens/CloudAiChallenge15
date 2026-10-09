@@ -1,0 +1,27 @@
+# Render blueprint for the inference API.
+#
+# Render reads this file from the repository root. Connecting the repository once
+# in the Render dashboard ("New" -> "Blueprint") is the only manual step; after
+# that every push to main rebuilds and redeploys the API automatically, which is
+# the "pipeline" half of the assignment's deployment requirement.
+#
+# The frontend is NOT here: it is a static site on Vercel (deploy/frontend).
+
+services:
+  - type: web
+    name: going-green-inference-api
+    runtime: docker
+    plan: free
+    region: frankfurt            # closest to Belgium; change if you prefer
+    dockerfilePath: ./deploy/backend/Dockerfile
+    dockerContext: .             # repository root: the image needs the model files
+    autoDeploy: true             # redeploy on every push to the connected branch
+    healthCheckPath: /api/health
+    envVars:
+      # Comma-separated list of origins allowed to call the API from a browser.
+      # Set this to the Vercel domain once it exists; "*" is the permissive
+      # default for an unauthenticated, read-only demo API.
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: PYTHONUNBUFFERED
+        value: "1"

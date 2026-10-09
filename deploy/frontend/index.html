@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Going Green Inference</title>
+<meta name="description" content="Web interface for the CloudAiChallenge15 models: mushroom edibility and Citi Bike daily demand.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-panel="mushroom">
+
+<!--
+  Single page, two models, no build step.
+
+  The page is deliberately "dumb": it collects inputs, posts them to the API and
+  renders what comes back. It never derives a model feature itself. The stem rule
+  (mushroom) and the calendar columns (Citi Bike) live only in the backend, so the
+  page cannot drift away from the deployment contract in CLAUDE.md sections 5.5
+  and 6.14. Everything shown under "Derived by the API" is read from the response.
+-->
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21c0-6 3-9 8-10-1 6-4 9-8 10Z"></path>
+          <path d="M12 21c0-6-3-9-8-10 1 6 4 9 8 10Z"></path>
+          <path d="M12 21V11"></path>
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>Going Green Inference</strong>
+        <small>CloudAiChallenge15&nbsp;&middot;&nbsp;Thomas More</small>
+      </span>
+    </div>
+
+    <div class="topbar-actions">
+      <button type="button" class="pill" id="api-status" aria-live="polite"
+              title="Backend connection. Click to change the API address.">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="api-status-text">Checking backend</span>
+      </button>
+      <button type="button" class="icon-btn" id="theme-toggle"
+              aria-label="Switch between light and dark theme">
+        <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path>
+        </svg>
+        <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <nav class="wrap tabs" role="tablist" aria-label="Choose a model">
+    <button role="tab" id="tab-mushroom" aria-controls="panel-mushroom" aria-selected="true">
+      <span class="tab-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 11a8.5 8.5 0 0 1 17 0c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2Z"></path>
+          <path d="M10 13v6a2 2 0 0 0 4 0v-6"></path>
+        </svg>
+      </span>
+      <span class="tab-label">
+        <strong>Mushroom edibility</strong>
+        <small>classification</small>
+      </span>
+    </button>
+    <button role="tab" id="tab-citibike" aria-controls="panel-citibike" aria-selected="false">
+      <span class="tab-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5.5" cy="17" r="3.5"></circle>
+          <circle cx="18.5" cy="17" r="3.5"></circle>
+          <path d="M5.5 17 10 7h4M9 17l5.5-7 4 7M14 7h3"></path>
+        </svg>
+      </span>
+      <span class="tab-label">
+        <strong>Citi Bike demand</strong>
+        <small>regression</small>
+      </span>
+    </button>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= Mushroom ================= -->
+  <section class="panel" id="panel-mushroom" role="tabpanel" aria-labelledby="tab-mushroom">
+
+    <div class="callout callout-critical">
+      <span class="callout-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 9v4M12 17h.01"></path>
+          <path d="M10.3 3.9 2.4 17.1A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z"></path>
+        </svg>
+      </span>
+      <div>
+        <strong>Never decide whether to eat a mushroom with this tool.</strong>
+        It is a student model trained on a deliberately noisy dataset (about 2% of the
+        labels are flipped) and it is wrong often. It is tuned to catch 90% of poisonous
+        mushrooms, which it pays for by calling roughly two thirds of the edible ones
+        poisonous as well.
+      </div>
+    </div>
+
+    <div class="split">
+      <form class="card form" id="form-mushroom" novalidate>
+        <h2>Observations</h2>
+        <p class="card-sub">
+          Leave anything you did not observe empty. Empty is a real input: the model was
+          trained on a dataset where only 12 of 5000 rows were complete. Note that
+          <strong>"none (absent)"</strong> and <strong>"Not observed"</strong> are different
+          answers &mdash; a mushroom with no ring is not the same as a ring you did not check.
+        </p>
+        <div class="fields" id="fields-mushroom"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6"></path>
+            </svg>
+            Predict
+          </button>
+          <button type="button" class="btn btn-ghost" data-example="mushroom">Load an example</button>
+        </div>
+      </form>
+
+      <div class="card result" id="result-mushroom" data-state="empty">
+        <h2>Prediction</h2>
+
+        <div class="result-empty">
+          <div class="result-empty-art" aria-hidden="true">
+            <svg viewBox="0 0 200 110" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round">
+              <path d="M24 86a76 76 0 0 1 152 0" stroke-dasharray="4 9" opacity=".75"></path>
+              <path d="M100 86V58" opacity=".5"></path>
+              <circle cx="100" cy="52" r="5" fill="currentColor" stroke="none" opacity=".5"></circle>
+            </svg>
+          </div>
+          <p>Fill in what you observed and press <strong>Predict</strong>.</p>
+        </div>
+
+        <div class="result-body">
+          <div class="verdict" id="mushroom-verdict">
+            <span class="verdict-ico" aria-hidden="true"></span>
+            <span class="verdict-text"></span>
+          </div>
+
+          <!--
+            Meter, not a chart: one value against one decision point. The fill
+            colour carries severity and the track is a lighter step of the same
+            hue, so the state reads across the whole arc. The tick is the
+            deployed threshold, on the same path as the value.
+          -->
+          <div class="gauge" id="mushroom-gauge">
+            <svg viewBox="0 0 200 116" role="img"
+                 aria-labelledby="mushroom-gauge-title">
+              <title id="mushroom-gauge-title">Probability that the mushroom is poisonous</title>
+              <path class="gauge-track" id="mushroom-arc-track"
+                    d="M20 100 A 80 80 0 0 1 180 100"
+                    fill="none" stroke-width="15" stroke-linecap="round"></path>
+              <path class="gauge-fill" id="mushroom-arc-fill"
+                    d="M20 100 A 80 80 0 0 1 180 100"
+                    fill="none" stroke-width="15"></path>
+              <line class="gauge-tick-halo" id="mushroom-tick-halo"
+                    x1="0" y1="0" x2="0" y2="0"></line>
+              <line class="gauge-tick" id="mushroom-tick"
+                    x1="0" y1="0" x2="0" y2="0"></line>
+            </svg>
+            <div class="gauge-centre">
+              <p class="hero" id="mushroom-prob">&mdash;</p>
+              <p class="gauge-label">probability poisonous</p>
+            </div>
+          </div>
+          <div class="gauge-scale"><span>0%</span><span id="mushroom-threshold-note"></span><span>100%</span></div>
+
+          <dl class="kv" id="mushroom-derived"></dl>
+          <div id="mushroom-notes"></div>
+          <p class="fineprint" id="mushroom-provenance"></p>
+        </div>
+
+        <div class="result-error" role="alert"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Citi Bike ================= -->
+  <section class="panel" id="panel-citibike" role="tabpanel" aria-labelledby="tab-citibike" hidden>
+
+    <div class="callout callout-info">
+      <span class="callout-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 8h.01M11 12h1v4h1"></path>
+        </svg>
+      </span>
+      <div>
+        <strong>Forecast for a whole day in New York, not a single trip.</strong>
+        The model predicts how busy the system is relative to the previous twelve
+        months, so the answer moves with both the weather and the long-term growth of
+        the network.
+      </div>
+    </div>
+
+    <div class="split">
+      <form class="card form" id="form-citibike" novalidate>
+        <h2>Day and weather forecast</h2>
+        <p class="card-sub">
+          The calendar columns are derived from the date by the API. Wind may be left
+          empty: the model handles it as a missing value.
+        </p>
+        <div class="fields" id="fields-citibike"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6"></path>
+            </svg>
+            Forecast
+          </button>
+          <button type="button" class="btn btn-ghost" id="fetch-weather"
+                  title="Fill the weather from the NOAA station the model was trained on">
+            Use real weather
+          </button>
+          <button type="button" class="btn btn-ghost" data-example="citibike">Load an example</button>
+        </div>
+      </form>
+
+      <div class="card result" id="result-citibike" data-state="empty">
+        <h2>Forecast</h2>
+
+        <div class="result-empty">
+          <div class="result-empty-art" aria-hidden="true">
+            <svg viewBox="0 0 200 110" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 84 Q 44 76 62 58 T 112 40 T 188 24" stroke-dasharray="4 9" opacity=".75"></path>
+              <path d="M12 96h176" opacity=".4"></path>
+            </svg>
+          </div>
+          <p>Pick a date, add a weather forecast and press <strong>Forecast</strong>.</p>
+        </div>
+
+        <div class="result-body">
+          <div class="hero-block">
+            <p class="hero-label">Expected trips on this day</p>
+            <p class="hero" id="citibike-trips">&mdash;</p>
+          </div>
+
+          <!--
+            Same job as the gauge above but different data: magnitude against a
+            baseline rather than a probability against a threshold, so a straight
+            bar with the baseline marked reads better than an arc.
+          -->
+          <div class="meter" id="citibike-meter">
+            <div class="meter-track">
+              <div class="meter-fill"></div>
+              <div class="meter-mark" id="citibike-baseline-mark">
+                <span class="meter-mark-line" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="meter-scale">
+              <span>0%</span>
+              <span class="meter-mark-label" id="citibike-baseline-label">normal day</span>
+              <span>150%</span>
+            </div>
+          </div>
+
+          <dl class="kv" id="citibike-derived"></dl>
+          <p class="fineprint" id="citibike-provenance"></p>
+        </div>
+
+        <div class="result-error" role="alert"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <p>
+      Front end for the Thomas More Deep Learning / Cloud AI challenge, theme
+      "Going green". Static page, no build step, no framework. It talks to the
+      inference API over HTTP and holds no model itself.
+    </p>
+    <p class="fineprint" id="footer-models"></p>
+  </div>
+</footer>
+
+<dialog id="api-dialog">
+  <form method="dialog" id="api-form">
+    <h2>Backend address</h2>
+    <p class="card-sub">
+      Base URL of the inference API, for example <code>http://localhost:8000</code>.
+      Stored in this browser only.
+    </p>
+    <label class="field">
+      <span class="field-label">API base URL</span>
+      <input type="url" id="api-base" placeholder="http://localhost:8000" spellcheck="false">
+    </label>
+    <label class="check">
+      <input type="checkbox" id="demo-mode">
+      <span>
+        <strong>Demo mode</strong> &mdash; no backend needed. Produces clearly marked
+        placeholder numbers from a crude formula so the layout can be shown. These are
+        <em>not</em> model predictions.
+      </span>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" value="save">Save</button>
+      <button type="button" class="btn btn-ghost" id="api-cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="demo-banner" id="demo-banner" hidden role="status">
+  <strong>Demo mode.</strong> The numbers below are placeholders from a crude formula,
+  not predictions from the trained model.
+  <button type="button" class="link-btn" id="demo-off">Turn off</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

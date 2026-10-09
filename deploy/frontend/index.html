@@ -299,8 +299,10 @@
   <form method="dialog" id="api-form">
     <h2>Backend address</h2>
     <p class="card-sub">
-      Base URL of the inference API, for example <code>http://localhost:8000</code>.
-      Stored in this browser only.
+      Leave this <strong>empty</strong> on the deployed site: it forwards
+      <code>/api</code> to the backend itself. Fill it in only to point the page
+      at another API, for example <code>http://localhost:8000</code> during
+      development. Stored in this browser only.
     </p>
     <label class="field">
       <span class="field-label">API base URL</span>

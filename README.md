@@ -13,12 +13,24 @@ Machine Learning / Cloud AI challenge – theme "Going green".
 | 3 | Mihai Constantin |
 | 4 | Zjef Schaeken |
 
+## Live demo
+
+- **Web interface:** <https://cloudaichallenge15-frontend.vercel.app/> - both models on one page
+- **API:** <https://going-green-inference-api.onrender.com/docs> - interactive documentation
+
+The API runs on a free tier that sleeps when idle, so the **first request can take about a
+minute** while it wakes up. The page shows "Waking the backend" and retries on its own.
+
+Architecture, API contract and design choices: [`deploy/README.md`](deploy/README.md).
+
 ## Repository structure
 
-| Folder | Dataset |
+| Folder | Content |
 |---|---|
 | [`SecondaryMushroom/`](SecondaryMushroom/) | Secondary Mushroom – predict edible vs. poisonous |
-| [`NYCCitiBikeSystemData/`](NYCCitiBikeSystemData/) | NYC Citi Bike trip data |
+| [`NYCCitiBikeSystemData/`](NYCCitiBikeSystemData/) | NYC Citi Bike trip data – predict daily demand |
+| [`deploy/`](deploy/) | Web interface, inference API, hosting configuration |
+| [`tools/`](tools/) | Headless notebook runner and the retraining script used by the pipeline |
 
 Notebooks in each folder are numbered in the order they should be run. The data is not in the repository: the
 mushroom CSV comes from the lecturer, and the Citi Bike data is downloaded by a script (see

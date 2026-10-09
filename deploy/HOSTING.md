@@ -1,5 +1,18 @@
 # Hosting checklist
 
+## Current state (9 October 2026)
+
+| Step | Status |
+|---|---|
+| 1. Frontend on Vercel | Done: <https://cloudaichallenge15-frontend.vercel.app/> |
+| 2. Backend on Render | Done: <https://going-green-inference-api.onrender.com> |
+| 3. Point the two at each other | Done: `/api` rewrite in `deploy/frontend/vercel.json` |
+| 4. Actions write permission | Check: needed for the retrain job to push |
+
+The rest of this file is the procedure, kept so the setup can be rebuilt.
+
+---
+
 What has to happen, and who has to do it. Everything marked **you** needs an
 account or a dashboard click that cannot be done from the repository.
 

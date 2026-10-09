@@ -34,12 +34,57 @@ deploy/
 
 ## Frontend
 
-`deploy/frontend/` is a static site: `index.html`, `styles.css`, `app.js`. No
-framework, no build step, no dependencies. Open the folder on any static host.
+`deploy/frontend/` is a static site with no build step. Three.js, the fonts and
+the icons load from jsDelivr, pinned to a version; everything else is in the
+folder.
 
-Why no build step: every team member is examined orally on this code, and a page
-that can be read top to bottom is worth more here than a component tree. It also
+```
+index.html           structure, import map for Three.js
+styles.css           all styling, both themes
+js/app.js            form, API calls, result cards, mode switch, settings
+js/stage.js          renderer, camera, switching between the two scenes
+js/mushroom-scene.js the mushroom built from the form
+js/bike-scene.js     the city island and its riders
+js/motion.js         tween and smoothing helpers, reduced-motion handling
+js/palette.js        gill and spore colours, shared by swatches and scene
+```
+
+Why no build step: every team member is examined orally on this code, and files
+that can be read top to bottom are worth more here than a component tree. It also
 makes the Vercel setup trivial and removes a class of deploy failures.
+
+### The 3D scenes are a picture of the input
+
+The scene is not decoration on the side; it is the form, drawn:
+
+- **Mushroom:** the cap morphs between the seven shapes, the sliders grow the cap
+  and stem (on a log scale, so 1 cm and 57 cm both fit), gill and spore colours
+  paint the gills and the spore print on the ground, the ring type puts a ring on
+  the stem, the habitat changes the ground and props, the season changes the
+  light and the falling leaves or snow. **A field left as "not observed" is drawn
+  as a wireframe**, because the model receives `missing` for it and treats it as
+  unknown, not as blank. "none" is drawn as absent: no ring, no gills, no stem.
+- **Citi Bike:** temperature colours the sky and sunlight, rain and snow fall at
+  a rate that follows the millimetres, snow on the ground whitens the grass, wind
+  bends the trees and slants the rain. After a forecast the number of riders on
+  the loop is the normal-day count times the model's ratio, straight from the
+  API: the same quantity as the "x% of a normal day" meter, drawn as people.
+- While the API answers, a ring sweeps the mushroom or a light runs around the
+  loop; when the answer lands the ring flashes out in the verdict colour.
+
+The scene draws what was typed, literally: a stem height of 0 draws no stem. It
+never computes `has_stem` or any other feature; the result card shows the API's
+own value. If WebGL or the CDN is unavailable the scene is skipped
+(`body.no-3d`) and the form and predictions work as before.
+
+Inputs are sliders and chip groups rather than number boxes. Sliders cannot hold a
+malformed number (a comma typed where the browser expects a full stop used to
+arrive as "not observed"), chips are real radio buttons (arrow keys work, screen
+readers announce them), and a slider can be cleared back to "not measured".
+
+Kept cheap: the scene renders only while visible, caps the pixel ratio, uses
+instancing for every repeated object, and on touch screens dragging is off so a
+finger scrolls the page. Under `prefers-reduced-motion` nothing moves by itself.
 
 ### The one rule the page follows
 

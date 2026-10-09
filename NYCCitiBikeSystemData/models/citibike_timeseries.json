@@ -1,0 +1,72 @@
+{
+  "model": "time series lightgbm_cds_dt (PyCaret)",
+  "notebook": "05d_model_timeseries",
+  "estimator": "BaseCdsDtForecaster(fe_target_rr=[WindowSummarizer(lag_feature={'lag': [7, 6, 5,\n                                                                        4, 3, 2,\n                                                                        1]},\n                                                   n_jobs=1)],\n                    regressor=LGBMRegressor(n_jobs=1, random_state=42), sp=7,\n                    window_length=7)",
+  "target": "log(demand_ratio) = log(trips / level_12m); storm days with 0 trips interpolated for fitting",
+  "level_assumption": "level_12m from the published months m-13..m-2; when they are not published yet, the newest level is kept (no further growth assumed)",
+  "exogenous_columns": [
+    "tmax_c",
+    "tmax_c_sq",
+    "tmin_c",
+    "precipitation_mm",
+    "snowfall_mm",
+    "snow_depth_mm",
+    "sat",
+    "sun",
+    "holiday",
+    "christmas_week",
+    "thanksgiving",
+    "day_after_thanksgiving",
+    "christmas_day",
+    "new_years_day",
+    "doy_sin1",
+    "doy_cos1",
+    "doy_sin2",
+    "doy_cos2"
+  ],
+  "weather_assumption": "normal weather: the mean of the forecasts over the weather of the same calendar day in every complete past year; low/high = 10th/90th percentile",
+  "weather_scenario_years": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "fitted_on": "2014-07-01 to 2026-08-30",
+  "forecast_first_day": "2026-08-31",
+  "forecast_last_day": "2027-12-31",
+  "period_days": 30,
+  "period_error_validation_2024": {
+    "daily_mape": 20.62,
+    "daily_median_ape": 14.26,
+    "daily_within_20pct": 68.89,
+    "inside_10_90_range_pct": 56.94,
+    "period_total_mean_abs_error_pct": 9.06
+  },
+  "validation": {
+    "time series lightgbm_cds_dt (measured weather)": {
+      "mape": 10.84,
+      "mae": 10926
+    },
+    "time series lightgbm_cds_dt (normal weather)": {
+      "mape": 20.32,
+      "mae": 19519
+    }
+  },
+  "test": {
+    "time series lightgbm_cds_dt (measured weather)": {
+      "mape": 15.73,
+      "mae": 15306
+    },
+    "time series lightgbm_cds_dt (normal weather)": {
+      "mape": 33.43,
+      "mae": 21267
+    }
+  }
+}

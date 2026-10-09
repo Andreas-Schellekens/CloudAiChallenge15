@@ -47,7 +47,7 @@ All deployable pipelines take the same cleaned, readable columns (as in `mushroo
 | 05a | `05a_model_random_forest.ipynb` | Random forest with own search space (deep trees), threshold for 90% recall on validation, label-noise experiment | Done |
 | 05b | `05b_model_gradient_boosting.ipynb` | `HistGradientBoostingClassifier`: native missing values/categoricals vs. our preprocessing, tuning, threshold | Done |
 | 05c | `05c_model_ensemble.ipynb` | Heterogeneous ensemble (forest, boosting, KNN, logistic regression): diversity check, averaging vs. stacking | Done |
-| 06 | `06_model_aws.ipynb` | Model trained & tuned on AWS SageMaker | Planned (postponed) |
+| 06 | `06_model_aws.ipynb` + `06_prepare_aws_upload.py` | XGBoost trained and tuned on AWS SageMaker (built-in algorithm, Bayesian tuning job with 20 trials on an 80/20 hold-out of train, threshold and evaluation as in 05a-05c). Runs in an AWS Academy lab, not locally: **see [`README_AWS.md`](README_AWS.md)** for every step | Ready to run in the lab (not yet run) |
 | 07 | `07_model_comparison.ipynb` | Comparison on the same rows (paired bootstrap), choice of the deployed model, permutation importance, error analysis | Done (without the AWS model) |
 
 ## Folder structure
@@ -56,6 +56,7 @@ All deployable pipelines take the same cleaned, readable columns (as in `mushroo
 SecondaryMushroom/
 ├── Data/          raw and prepared data (not in git)
 ├── models/        saved models (.pkl, large files gitignored)
+├── README_AWS.md  how to run 06_model_aws.ipynb in the AWS Academy lab
 ├── deploy/        API backend + frontend
 └── 0X_*.ipynb     numbered notebooks
 ```

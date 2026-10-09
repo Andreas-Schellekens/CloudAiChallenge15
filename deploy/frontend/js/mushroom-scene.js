@@ -186,6 +186,10 @@ const stemRadius = (w) => (w == null ? 0.2 : 0.05 + 0.32 * logScale(w, 102.5));
 
 /* ================================================================== scene */
 
+/* Horizontal axis at right angles to the camera's viewing direction: turning
+   about it tips the mushroom towards or away from the viewer. */
+const PEEK_AXIS = new THREE.Vector3(9.1, 0, -7.4).normalize();
+
 export class MushroomScene {
   constructor() {
     this.group = new THREE.Group();
@@ -311,7 +315,12 @@ export class MushroomScene {
     // Gills: a disc under the cap, painted with radial lines.
     this.gillMats = {};
     for (const [name, hex] of Object.entries(MUSHROOM_COLOURS)) {
-      this.gillMats[name] = new THREE.MeshStandardMaterial({ color: hex, map: TEX.gills, roughness: 0.8 });
+      // The underside faces away from the sun, so a little self-light in the
+      // gill colour keeps the colour readable when the mushroom tips back.
+      this.gillMats[name] = new THREE.MeshStandardMaterial({
+        color: hex, map: TEX.gills, roughness: 0.8,
+        emissive: hex, emissiveMap: TEX.gills, emissiveIntensity: 0.55,
+      });
     }
     this.gillMats.none = new THREE.MeshStandardMaterial({ color: '#e6d2b2', roughness: 0.7 });
     const gillGeo = new THREE.CircleGeometry(1, SEG);
@@ -442,8 +451,12 @@ export class MushroomScene {
     this.stem.material = obs.stem_surface && obs.stem_surface !== 'none'
       ? this.stemMats[obs.stem_surface] : this.ghostMat;
 
-    // Gills.
+    // Gills. They sit under the cap, out of the camera's view, so a new gill
+    // colour makes the mushroom tip back for a moment to show them.
     this.gills.material = obs.gill_color == null ? this.ghostMat : this.gillMats[obs.gill_color];
+    if (Object.keys(prev).length && obs.gill_color !== prev.gill_color && obs.gill_color != null) {
+      this.peekHold = 1.6;
+    }
 
     // Ring.
     this._setRing(noStem ? 'none' : (obs.ring_type ?? 'missing'));
@@ -746,6 +759,12 @@ export class MushroomScene {
       this.cap.geometry.computeVertexNormals();
       if (moved < 1e-4) this.capMoving = false;
     }
+
+    // Gill peek: tip the top away from the camera so the underside faces it,
+    // hold, then spring back upright.
+    this.peekHold = Math.max(0, (this.peekHold ?? 0) - dt);
+    this.peekCur = approach(this.peekCur ?? 0, this.peekHold > 0 ? 1 : 0, dt, 7);
+    this.shroom.quaternion.setFromAxisAngle(PEEK_AXIS, -0.8 * this.peekCur);
 
     // Place the parts.
     const capScaleY = cur.capR * 0.9;

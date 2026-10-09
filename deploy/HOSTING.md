@@ -27,7 +27,7 @@ chain. That is the assignment's "pipeline" requirement.
 ## 1. Frontend on Vercel  (**you**, about 3 minutes)
 
 1. Sign in at <https://vercel.com> with the GitHub account that can see
-   `Andreas-Schellekens/CloudAiChallenge15`.
+   `finnvangronsveld/CloudAiChallenge15`.
 2. **Add New -> Project**, import the repository.
 3. Set **Root Directory** to `deploy/frontend`. Leave the framework preset on
    "Other"; there is no build command and no output directory to change
@@ -81,9 +81,9 @@ retrained artefacts back:
 It needs no secrets. Render and Vercel watch the repository themselves, so there
 are no deploy keys to manage.
 
-> You may not be an admin on Andreas's repository. If the setting is not
-> available to you, ask him, or the retrain job will fail at the push step while
-> the tests still pass.
+> The repository now sits under your own account, so this setting is yours to
+> change. Without it the retrain job fails at the push step while the tests
+> still pass.
 
 ---
 

@@ -24,6 +24,8 @@ CloudAiChallenge15/
 ├── SecondaryMushroom/
 │   ├── README.md                 data files, model files, notebook list with status
 │   ├── 01_eda.ipynb ... 07_model_comparison.ipynb   numbered notebooks (run in order)
+│   ├── 06_prepare_aws_upload.py  packs the prepared data + a copy of 06 into Data/aws/ for the AWS lab
+│   ├── README_AWS.md             step-by-step guide for running 06_model_aws.ipynb in the AWS Academy lab (Canvas)
 │   ├── Data/                     git-ignored except .gitkeep (raw CSV + generated split folders)
 │   │   ├── mushroom_project_dataset.csv          raw file from the lecturer (never modified)
 │   │   ├── train/       mushroom_cleaned_train.csv, mushroom_prepared_train.csv
@@ -172,14 +174,14 @@ One fixed stratified split, made only in `02_data_preparation.ipynb` section 6 (
 | `05a_model_random_forest.ipynb` | Done | Best: 800 trees, gini, no depth limit, `sqrt`, min_samples_leaf 1, max_samples 0.9, balanced_subsample (ties with depth 30 / leaf 3 / 30% features). Small leaves matter; depth 12 and `log2` worse. Label-noise cleaning inside the folds gives no gain; cleaning before CV is methodologically wrong (in an earlier 80/20 version it faked +0.009 AUC) |
 | `05b_model_gradient_boosting.ipynb` | Done | `HistGradientBoostingClassifier` "native" (NaN kept, `OrdinalEncoder` + `categorical_features`) beats "prepared" (38 of 40 candidates, validation 0.819 vs 0.808). Tuning gains little (default better in CV 0.826 vs 0.821, worse on validation 0.814 vs 0.819; tuned kept). Best: learning_rate about 0.019, 55 leaves, min_samples_leaf 17, early stopping (365 trees), no class weights |
 | `05c_model_ensemble.ipynb` | Done | Members RF, HGB, KNN (k=15, distance, CV 0.792), logistic regression. OOF Spearman: RF-HGB 0.88, RF-KNN 0.87, LR 0.46–0.61. Chosen by CV AUC: `StackingClassifier` of RF + HGB with logistic regression meta-learner (weights RF 4.22, HGB 2.10). KNN/LR add nothing; averaging all four hurts |
-| `06_model_aws.ipynb` | Planned (postponed by the user) | XGBoost on SageMaker with SageMaker hyperparameter tuning, same split, threshold on validation; then add it to 07. Download the SageMaker notebook into the repo |
+| `06_model_aws.ipynb` | Ready to run in the AWS lab, not yet run (prepared 9 October 2026) | Runs in a SageMaker notebook of an AWS Academy lab (started from Canvas), not locally; guide: `SecondaryMushroom/README_AWS.md`. `06_prepare_aws_upload.py` writes `Data/aws/mushroom_aws_data.zip` (prepared train/validation/test, 182 KB) and a copy of the notebook. Uses `boto3` only (no SageMaker SDK version dependence). Built-in XGBoost container 1.7-1, `binary:logistic`, objective `validation:auc`; tuning channel = stratified 80/20 split of train (seed 42), validation/test never uploaded to S3; Bayesian tuning job, 20 trials, 2 parallel, `ml.m5.large`; search space eta, num_round, max_depth, min_child_weight, subsample, colsample_bytree, lambda; final tuned and default models on all 3500 training rows; loaded with `xgboost==1.7.6`; threshold and metrics as in 5.3. Job names in `outputs/job_names.json` so a re-run does not start new jobs. Output: `mushroom_aws_results.zip` (model `.tar.gz` + JSON, metric rows, predictions per `row_id`, trials). Tested end to end locally against a fake boto3/xgboost (scratch test, not in the repo). Interpretation cells are placeholders until the run |
 | `07_model_comparison.ipynb` | Done (without AWS model) | Paired bootstrap (2000 resamples) on validation: the three tree models are indistinguishable at 90% recall, logistic regression clearly worse. Deployed: gradient boosting (same quality, 1 MB vs 26–27 MB, about 5 ms vs 47–62 ms per prediction). Permutation importance (validation, cleaned columns): stem_surface, stem_width, gill_color, cap_shape, stem_height, ring_type. Error analysis: missed poisonous mushrooms are large and lack strong poisonous signals; mostly missed by all models (data limit) |
 
 Observations to keep in mind: the test set is a little easier than the validation set for every model (AUC about +0.025), so test recall at the validation threshold is 0.92–0.94. A single set of 750 rows has an AUC standard error of about 0.015: compare models on the same rows (paired), never by single numbers from different sets.
 
 ### 5.7 Next steps (mushroom)
 
-1. `06_model_aws.ipynb` when the user un-postpones it (see 5.6).
+1. Run `06_model_aws.ipynb` in the AWS Academy lab (`README_AWS.md`), then integrate the results (README_AWS step 8): model `.tar.gz` + JSON + trials CSV into `models/`, metric rows into `metrics.csv`, `xgboost==1.7.6` in `requirements.txt`, the model in `07` (behind `mushroom_preprocessor.joblib`, check against `mushroom_xgboost_predictions.csv`), the interpretation cells of 06, READMEs and 5.4/5.6.
 2. Deployment around `mushroom_gradient_boosting.joblib`: API (the assignment rewards a non-Python language and no Streamlit), custom frontend, hosting (e.g. Oracle free tier), automated retraining pipeline on push (e.g. GitHub Actions).
 3. Optional extras from the assignment: unsupervised learning (e.g. clustering the mushrooms) with an explanation of what it shows.
 

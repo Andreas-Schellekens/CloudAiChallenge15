@@ -13,6 +13,7 @@
 */
 
 import { MUSHROOM_COLOURS, dotFor } from './palette.js';
+import { initPeriod } from './period.js';
 
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -355,18 +356,14 @@ function apiUrl(path) {
   retried. A 503 WITH a `detail` is our API answering on purpose (for example a
   missing artefact) and is shown straight away.
 */
-async function postJson(path, body, onRetry) {
+async function requestJson(path, init, onRetry) {
   const attempts = 8;
   const delay = 8000;
   for (let attempt = 1; ; attempt++) {
     let response;
     let data = null;
     try {
-      response = await fetch(apiUrl(path), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      response = await fetch(apiUrl(path), init);
       const text = await response.text();
       try { data = text ? JSON.parse(text) : null; } catch { data = null; }
     } catch {
@@ -386,6 +383,13 @@ async function postJson(path, body, onRetry) {
     return data;
   }
 }
+
+const postJson = (path, body, onRetry) => requestJson(path, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+}, onRetry);
+const getJson = (path, onRetry) => requestJson(path, { cache: 'no-store' }, onRetry);
 
 let healthTimer = null;
 async function checkHealth(attempt = 0) {
@@ -788,7 +792,12 @@ buildPanel('mushroom', MUSHROOM_SECTIONS, $('fields-mushroom'));
 buildPanel('citibike', CITIBIKE_SECTIONS, $('fields-citibike'));
 
 for (const mode of ['mushroom', 'citibike']) {
-  $(`panel-${mode}`).addEventListener('submit', (e) => { e.preventDefault(); predict(mode); });
+  $(`panel-${mode}`).addEventListener('submit', (e) => {
+    e.preventDefault();
+    // Enter in the period view's date field must not run the single-day model.
+    if (mode === 'citibike' && document.body.dataset.citibikeView === 'period') return;
+    predict(mode);
+  });
 }
 $('random-mushroom').addEventListener('click', () => setAll('mushroom', randomMushroom()));
 $('reset-mushroom').addEventListener('click', () => { setAll('mushroom', { ...MUSHROOM_EMPTY }); setHud('mushroom', 'idle'); });
@@ -798,6 +807,12 @@ $('reset-citibike').addEventListener('click', () => {
   if (stage) stage.citibike.reset();
 });
 $('weather-citibike').addEventListener('click', fetchWeather);
+initPeriod({
+  getJson,
+  isDemo: () => settings.demo,
+  onWaking: () => checkHealth(),
+  onOnline: () => { if (!settings.demo) $('api-status').dataset.state = 'online'; },
+});
 
 wireTabs();
 wireTheme();

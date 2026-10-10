@@ -8,6 +8,7 @@ Endpoints (see deploy/README.md for the full contract):
     GET  /api/health
     POST /api/mushroom
     POST /api/citibike
+    GET  /api/citibike/period?start=YYYY-MM-DD&days=30   period forecast, normal weather
     GET  /api/weather?date=YYYY-MM-DD   convenience, NOAA Central Park
 
 Run locally:
@@ -26,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .models import ModelUnavailable, Registry
+from .models import ModelUnavailable, PeriodOutOfRange, Registry
 from .weather import WeatherUnavailable, observed_weather
 
 logging.basicConfig(level=logging.INFO,
@@ -115,6 +116,26 @@ def predict_citibike(request: CitibikeRequest) -> dict:
         raise HTTPException(500, f"prediction failed: {error}") from error
 
 
+@app.get("/api/citibike/period")
+def citibike_period(
+    start: dt.date | None = Query(None, description="First day, YYYY-MM-DD. Default: today, "
+                                  "moved into the forecast range."),
+    days: int = Query(30, ge=1, le=30, description="Length of the period, 1-30 days"),
+) -> dict:
+    """Expected trips for every day of a period, under normal weather.
+
+    A lookup in the forecast table of 05d_model_timeseries.ipynb, not a model run.
+    No weather forecast is used: each number is what a day with that date brings
+    in typical weather, with the spread over eleven past years as a band.
+    """
+    if registry.citibike_period is None:
+        raise HTTPException(503, registry.errors.get("citibike_period", "forecast not loaded"))
+    try:
+        return registry.citibike_period.period(start, days)
+    except PeriodOutOfRange as error:
+        raise HTTPException(422, str(error)) from error
+
+
 @app.get("/api/weather")
 def weather(date: dt.date = Query(..., description="YYYY-MM-DD")) -> dict:
     """Observed weather for a past day, from the station the model was trained on.
@@ -137,5 +158,6 @@ def root() -> JSONResponse:
     return JSONResponse({
         "service": "Fieldcast API",
         "docs": "/docs",
-        "endpoints": ["/api/health", "/api/mushroom", "/api/citibike", "/api/weather"],
+        "endpoints": ["/api/health", "/api/mushroom", "/api/citibike",
+                      "/api/citibike/period", "/api/weather"],
     })

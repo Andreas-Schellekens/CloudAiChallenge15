@@ -204,6 +204,16 @@
     </form>
 
     <form class="panel-body" id="panel-citibike" role="tabpanel" aria-labelledby="tab-citibike" novalidate hidden>
+      <!-- Two views of the same model family: one day with weather you set, or
+           the next 30 days under normal weather (05d period forecast). -->
+      <div class="chips view-switch" role="radiogroup" aria-label="Citi Bike forecast">
+        <label class="chip"><input type="radio" name="citibike-view" value="day" checked>
+          <span><i class="ph ph-calendar-blank" aria-hidden="true"></i> One day</span></label>
+        <label class="chip"><input type="radio" name="citibike-view" value="period">
+          <span><i class="ph ph-chart-line" aria-hidden="true"></i> Next 30 days</span></label>
+      </div>
+
+      <div id="citibike-day">
       <div id="fields-citibike"></div>
       <div class="panel-actions">
         <button type="submit" class="btn btn-primary" id="predict-citibike">
@@ -216,6 +226,46 @@
         <button type="button" class="btn btn-quiet" id="reset-citibike">
           <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Reset
         </button>
+      </div>
+      </div>
+
+      <div id="citibike-period" hidden>
+        <section class="section">
+          <h2><i class="ph ph-chart-line" aria-hidden="true"></i> Next 30 days</h2>
+          <label class="text-field"><span>First day of the period</span>
+            <input type="date" id="period-start"></label>
+
+          <div class="period-status" id="period-status" aria-live="polite"></div>
+
+          <div id="period-result" hidden>
+            <dl class="period-stats">
+              <div><dt>Total trips</dt><dd id="period-total"></dd></div>
+              <div><dt>Average per day</dt><dd id="period-mean"></dd></div>
+              <div><dt>Busiest day</dt><dd id="period-busiest"></dd></div>
+              <div><dt>Quietest day</dt><dd id="period-quietest"></dd></div>
+            </dl>
+
+            <figure class="period-figure">
+              <div class="period-chart" id="period-chart"></div>
+              <figcaption>
+                <ul class="period-legend">
+                  <li><span class="key key-line" aria-hidden="true"></span> Expected trips</li>
+                  <li><span class="key key-band" aria-hidden="true"></span> Spread over 11 past years' weather</li>
+                  <li><span class="key key-weekend" aria-hidden="true"></span> Weekend</li>
+                  <li><span class="key key-holiday" aria-hidden="true"></span> Federal holiday</li>
+                </ul>
+              </figcaption>
+            </figure>
+
+            <p class="period-caption" id="period-caption"></p>
+            <p class="period-note" id="period-note" hidden></p>
+
+            <details class="about">
+              <summary>Show as a table</summary>
+              <div class="period-table-wrap"><table class="period-table" id="period-table"></table></div>
+            </details>
+          </div>
+        </section>
       </div>
     </form>
 

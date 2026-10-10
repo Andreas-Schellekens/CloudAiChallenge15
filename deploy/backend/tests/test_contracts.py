@@ -92,9 +92,13 @@ def test_federal_holiday_detected():
 
 
 def test_christmas_week_spans_the_year_end():
+    """24 December - 1 January, except the federal holidays in it (as in 02)."""
     assert calendar_for(dt.date(2026, 12, 24)).christmas_week
     assert calendar_for(dt.date(2026, 12, 31)).christmas_week
-    assert calendar_for(dt.date(2027, 1, 1)).christmas_week
+    assert not calendar_for(dt.date(2026, 12, 25)).christmas_week   # holiday
+    assert calendar_for(dt.date(2026, 12, 25)).holiday
+    assert not calendar_for(dt.date(2027, 1, 1)).christmas_week     # holiday
+    assert calendar_for(dt.date(2027, 1, 1)).holiday
     assert not calendar_for(dt.date(2027, 1, 2)).christmas_week
 
 
@@ -157,3 +161,98 @@ def test_citibike_either_predicts_or_explains_itself():
 
 def test_citibike_rejects_a_missing_date():
     assert client.post("/api/citibike", json={"tmax_c": 18.5}).status_code == 422
+
+
+# --------------------------------------------------------------------- period forecast
+#
+# GET /api/citibike/period reads the table written by 05d_model_timeseries.ipynb.
+# The range is taken from the response itself, so these tests keep working when
+# 05d is re-run and the table moves forward.
+
+def period(**params):
+    return client.get("/api/citibike/period", params=params)
+
+
+def period_range():
+    body = period(days=1).json()
+    first = dt.date.fromisoformat(body["first_day_available"])
+    last = dt.date.fromisoformat(body["last_day_available"])
+    return first, last
+
+
+def test_health_reports_the_period_forecast():
+    assert client.get("/api/health").json()["detail"]["citibike_period"] == "ok"
+
+
+def test_period_default_is_30_consecutive_days_inside_the_range():
+    response = period()
+    assert response.status_code == 200
+    body = response.json()
+    first, last = period_range()
+    dates = [dt.date.fromisoformat(d["date"]) for d in body["days"]]
+    assert len(dates) == 30
+    assert all((b - a).days == 1 for a, b in zip(dates, dates[1:]))
+    assert first <= dates[0] and dates[-1] <= last
+    assert body["start"] == dates[0].isoformat() and body["end"] == dates[-1].isoformat()
+
+
+def test_period_length_limits():
+    first, _ = period_range()
+    assert len(period(start=first.isoformat(), days=1).json()["days"]) == 1
+    assert len(period(start=first.isoformat(), days=30).json()["days"]) == 30
+    assert period(days=0).status_code == 422
+    assert period(days=31).status_code == 422
+
+
+def test_period_start_outside_the_range_is_rejected():
+    first, last = period_range()
+    before = period(start=(first - dt.timedelta(days=1)).isoformat(), days=30)
+    assert before.status_code == 422
+    assert first.isoformat() in before.json()["detail"]
+    # The last valid start for 30 days is last - 29; one day later no longer fits.
+    assert period(start=(last - dt.timedelta(days=29)).isoformat(), days=30).status_code == 200
+    assert period(start=(last - dt.timedelta(days=28)).isoformat(), days=30).status_code == 422
+    assert period(start=(last + dt.timedelta(days=1)).isoformat(), days=1).status_code == 422
+
+
+def test_period_total_is_the_sum_of_the_days():
+    body = period().json()
+    trips = [d["predicted_trips"] for d in body["days"]]
+    assert body["total_trips"] == sum(trips)
+    assert body["busiest_day"]["trips"] == max(trips)
+    assert body["quietest_day"]["trips"] == min(trips)
+
+
+def test_period_flags_thanksgiving_as_a_holiday():
+    body = period(start="2026-11-20", days=14).json()
+    thanksgiving = next(d for d in body["days"] if d["date"] == "2026-11-26")
+    assert thanksgiving["holiday"]
+    assert not next(d for d in body["days"] if d["date"] == "2026-11-25")["holiday"]
+
+
+def test_period_reports_the_error_figures_of_05d():
+    import json
+    from app.models import CITIBIKE_DIR
+    meta = json.loads((CITIBIKE_DIR / "citibike_timeseries.json").read_text())
+    errors = meta["period_error_validation_2024"]
+    body = period().json()
+    assert body["typical_daily_error_pct"] == errors["daily_mape"]
+    assert body["period_total_error_pct"] == errors["period_total_mean_abs_error_pct"]
+    assert body["weather_assumption"] == meta["weather_assumption"]
+
+
+def test_period_warns_far_from_the_last_data():
+    _, last = period_range()
+    far = period(start=(last - dt.timedelta(days=29)).isoformat()).json()
+    assert far["days_after_last_data"] > 30 and far["note"]
+
+
+def test_period_default_start_is_today_clipped_into_the_range():
+    from app.main import registry
+    forecast = registry.citibike_period
+    first, last = forecast.first_day, forecast.last_day
+    assert forecast.default_start(30, first - dt.timedelta(days=100)) == first
+    assert forecast.default_start(30, first + dt.timedelta(days=5)) == first + dt.timedelta(days=5)
+    assert forecast.default_start(30, last) == last - dt.timedelta(days=29)
+    body = forecast.period(None, 30, today=last + dt.timedelta(days=400))
+    assert body["end"] == last.isoformat()

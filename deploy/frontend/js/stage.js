@@ -45,7 +45,7 @@ export function createStage(canvas, stageEl) {
   controls.enableZoom = false;        // the wheel scrolls the page, not the scene
   controls.enablePan = false;
   controls.minPolarAngle = 0.35;
-  controls.maxPolarAngle = 1.38;      // never look from under the ground
+  controls.maxPolarAngle = 1.38;      // per scene: the mushroom allows a look from below
   controls.autoRotate = !reducedMotion;
   controls.autoRotateSpeed = 0.55;
   if (window.matchMedia('(pointer: coarse)').matches) controls.enabled = false;
@@ -106,6 +106,11 @@ export function createStage(canvas, stageEl) {
       delay: prev ? 180 : 0,
     });
 
+    // How far below the horizon the camera may go. Widen it at once, narrow it
+    // only after the camera has glided up, so the clamp never fights the glide.
+    const maxPolar = incoming.maxPolarAngle ?? 1.38;
+    controls.maxPolarAngle = Math.max(controls.maxPolarAngle, maxPolar);
+
     const fromPos = camera.position.clone();
     const fromTarget = controls.target.clone();
     const toPos = new THREE.Vector3(...incoming.cameraPose.position);
@@ -117,8 +122,9 @@ export function createStage(canvas, stageEl) {
       tween(800, (p) => {
         camera.position.lerpVectors(fromPos, toPos, p);
         controls.target.lerpVectors(fromTarget, toTarget, p);
-      });
+      }, { onDone: () => { controls.maxPolarAngle = maxPolar; } });
     }
+    if (!prev) controls.maxPolarAngle = maxPolar;
     applySky();
   }
 
@@ -155,7 +161,7 @@ export function createStage(canvas, stageEl) {
     if (!onScreen || document.hidden) return;
     runTweens(now);
     const t = clock.elapsedTime;
-    for (const s of Object.values(scenes)) if (s.group.visible) s.tick(dt, t);
+    for (const s of Object.values(scenes)) if (s.group.visible) s.tick(dt, t, camera);
     controls.update();
     renderer.render(scene, camera);
   }

@@ -186,14 +186,13 @@ const stemRadius = (w) => (w == null ? 0.2 : 0.05 + 0.32 * logScale(w, 102.5));
 
 /* ================================================================== scene */
 
-/* Horizontal axis at right angles to the camera's viewing direction: turning
-   about it tips the mushroom towards or away from the viewer. */
-const PEEK_AXIS = new THREE.Vector3(9.1, 0, -7.4).normalize();
-
 export class MushroomScene {
   constructor() {
     this.group = new THREE.Group();
     this.cameraPose = { position: [7.4, 4.7, 9.1], target: [0, 1.05, 0] };
+    this.maxPolarAngle = 2.45;   // the camera may go under the island
+    this.under = 0;              // 0 = looking from above, 1 = from below
+    this.groundFade = [];        // materials that fade out when looking from below
     this.dark = false;
     this.obs = {};
     this.time = 0;
@@ -234,14 +233,15 @@ export class MushroomScene {
   }
 
   _island() {
-    this.groundMat = new THREE.MeshStandardMaterial({ color: GROUND.missing, roughness: 1 });
+    this.groundMat = new THREE.MeshStandardMaterial({ color: GROUND.missing, roughness: 1, transparent: true });
     const top = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 4.95, 0.35, 80), this.groundMat);
     top.position.y = -0.175;
     top.receiveShadow = true;
     const soil = new THREE.Mesh(
       new THREE.CylinderGeometry(4.95, 4.2, 0.7, 80),
-      new THREE.MeshStandardMaterial({ color: '#5b4330', roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: '#5b4330', roughness: 1, transparent: true }),
     );
+    this.groundFade.push(this.groundMat, soil.material);
     soil.position.y = -0.7;
     this.group.add(top, soil);
     this.groundColour = new THREE.Color(GROUND.missing);
@@ -250,7 +250,11 @@ export class MushroomScene {
   _props() {
     // Four instanced meshes cover every habitat. Shapes are reused with a
     // colour and a scale per instance, which keeps it to four draw calls.
-    const material = () => new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
+    const material = () => {
+      const m = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true, transparent: true });
+      this.groundFade.push(m);
+      return m;
+    };
     const cone = new THREE.ConeGeometry(1, 1, 7); cone.translate(0, 0.5, 0);
     const cyl = new THREE.CylinderGeometry(1, 1, 1, 9); cyl.translate(0, 0.5, 0);
     const blob = new THREE.IcosahedronGeometry(1, 1);
@@ -451,12 +455,8 @@ export class MushroomScene {
     this.stem.material = obs.stem_surface && obs.stem_surface !== 'none'
       ? this.stemMats[obs.stem_surface] : this.ghostMat;
 
-    // Gills. They sit under the cap, out of the camera's view, so a new gill
-    // colour makes the mushroom tip back for a moment to show them.
+    // Gills. They sit under the cap: drag the view below the ground to see them.
     this.gills.material = obs.gill_color == null ? this.ghostMat : this.gillMats[obs.gill_color];
-    if (Object.keys(prev).length && obs.gill_color !== prev.gill_color && obs.gill_color != null) {
-      this.peekHold = 1.6;
-    }
 
     // Ring.
     this._setRing(noStem ? 'none' : (obs.ring_type ?? 'missing'));
@@ -729,7 +729,7 @@ export class MushroomScene {
 
   /* -------------------------------------------------------- every frame */
 
-  tick(dt, t) {
+  tick(dt, t, camera) {
     const cur = this.cur, tgt = this.tgt;
     for (const key of Object.keys(cur)) cur[key] = approach(cur[key], tgt[key], dt, 11);
 
@@ -760,11 +760,19 @@ export class MushroomScene {
       if (moved < 1e-4) this.capMoving = false;
     }
 
-    // Gill peek: tip the top away from the camera so the underside faces it,
-    // hold, then spring back upright.
-    this.peekHold = Math.max(0, (this.peekHold ?? 0) - dt);
-    this.peekCur = approach(this.peekCur ?? 0, this.peekHold > 0 ? 1 : 0, dt, 7);
-    this.shroom.quaternion.setFromAxisAngle(PEEK_AXIS, -0.8 * this.peekCur);
+    // Looking from below: the island and everything on it fade out, so the
+    // underside of the cap (gills, ring, stem base) stays in view.
+    if (camera) {
+      const target = THREE.MathUtils.clamp((0.35 - camera.position.y) / 1.1, 0, 1);
+      const u = reducedMotion ? target : this.under + (target - this.under) * (1 - Math.exp(-12 * dt));
+      if (Math.abs(u - this.under) > 1e-4 || (u === target && this.under !== target)) {
+        this.under = u;
+        for (const m of this.groundFade) {
+          m.opacity = 1 - 0.92 * u;
+          m.depthWrite = u < 0.5;
+        }
+      }
+    }
 
     // Place the parts.
     const capScaleY = cur.capR * 0.9;

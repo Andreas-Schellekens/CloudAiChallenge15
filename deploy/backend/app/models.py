@@ -8,6 +8,11 @@ The twelve-month level for Citi Bike comes from Data/citibike_monthly.csv, which
 02_data_preparation.ipynb produces. It is the one input that is not a model file.
 If it is absent the Citi Bike endpoint reports that clearly instead of inventing
 a number.
+
+The 30-day period forecast (CitibikePeriod) is different: no model runs here.
+05d_model_timeseries.ipynb forecasts every day up to the end of 2027 under
+normal weather and writes citibike_timeseries_forecast.csv; the API only reads
+that table, which keeps PyCaret, sktime and LightGBM out of the container.
 """
 
 from __future__ import annotations
@@ -46,6 +51,10 @@ CITIBIKE_MONTHLY_CANDIDATES = [
 
 class ModelUnavailable(RuntimeError):
     """Raised when an endpoint cannot serve because an artefact is missing."""
+
+
+class PeriodOutOfRange(ValueError):
+    """Raised when a requested period is not covered by the forecast table."""
 
 
 class MushroomModel:
@@ -154,6 +163,110 @@ class CitibikeModel:
         }
 
 
+class CitibikePeriod:
+    """The 30-day period forecast: a lookup in the table written by 05d.
+
+    Each row is the expected number of trips on that date under normal weather
+    (the mean over the weather of the same calendar day in eleven past years),
+    with the 10th and 90th percentile over those weather years as a band. The
+    band shows how much the weather alone moves the number; it is not a
+    prediction interval.
+    """
+
+    name = "citibike_period"
+    MAX_DAYS = 30
+    # Beyond this many days after the last fitted day the forecast still exists,
+    # but the model has seen nothing recent: the response says so.
+    WARN_AFTER_DAYS = 30
+
+    def __init__(self) -> None:
+        self.meta = json.loads((CITIBIKE_DIR / "citibike_timeseries.json").read_text())
+        frame = pd.read_csv(CITIBIKE_DIR / "citibike_timeseries_forecast.csv",
+                            parse_dates=["date"])
+        self.table = frame.set_index(frame["date"].dt.date).sort_index()
+        self.first_day = dt.date.fromisoformat(self.meta["forecast_first_day"])
+        self.last_day = dt.date.fromisoformat(self.meta["forecast_last_day"])
+        # "2014-07-01 to 2026-08-30": the last day the model was fitted on.
+        self.last_fitted_day = dt.date.fromisoformat(self.meta["fitted_on"].split(" to ")[-1])
+
+        # The table must cover the promised range without gaps, or a period
+        # could silently come back shorter than asked.
+        expected = pd.date_range(self.first_day, self.last_day, freq="D").date
+        missing = sorted(set(expected) - set(self.table.index))
+        if missing:
+            raise ModelUnavailable(f"forecast table misses {len(missing)} days, first {missing[0]}")
+        log.info("citibike period forecast loaded, %s to %s", self.first_day, self.last_day)
+
+    def latest_start(self, days: int) -> dt.date:
+        return self.last_day - dt.timedelta(days=days - 1)
+
+    def default_start(self, days: int, today: dt.date) -> dt.date:
+        """Today, moved into the range so that a whole period fits."""
+        return min(max(today, self.first_day), self.latest_start(days))
+
+    def period(self, start: dt.date | None, days: int = 30,
+               today: dt.date | None = None) -> dict:
+        if not 1 <= days <= self.MAX_DAYS:
+            raise PeriodOutOfRange(f"days must be between 1 and {self.MAX_DAYS}")
+        latest_start = self.latest_start(days)
+        if start is None:
+            start = self.default_start(days, today or dt.date.today())
+        elif not self.first_day <= start <= latest_start:
+            raise PeriodOutOfRange(
+                f"a {days}-day period must start between {self.first_day} and "
+                f"{latest_start} (the forecast covers {self.first_day} to {self.last_day})")
+        end = start + dt.timedelta(days=days - 1)
+        rows = self.table.loc[start:end]
+
+        out_days = [{
+            "date": day.isoformat(),
+            "weekday": int(r.weekday),
+            "weekend": int(r.weekday) >= 5,
+            "holiday": bool(r.holiday),
+            "christmas_week": bool(r.christmas_week),
+            "predicted_trips": int(r.predicted_trips),
+            "low_trips": int(r.low_trips),
+            "high_trips": int(r.high_trips),
+            "tmax_c": float(r.tmax_c),
+            "tmin_c": float(r.tmin_c),
+            "precipitation_mm": float(r.precipitation_mm),
+            "snow_depth_mm": float(r.snow_depth_mm),
+            "level_source": str(r.level_source),
+        } for day, r in rows.iterrows()]
+
+        trips = [d["predicted_trips"] for d in out_days]
+        busiest = max(out_days, key=lambda d: d["predicted_trips"])
+        quietest = min(out_days, key=lambda d: d["predicted_trips"])
+        errors = self.meta["period_error_validation_2024"]
+        days_after = (start - self.last_fitted_day).days
+        note = None
+        if days_after > self.WARN_AFTER_DAYS:
+            note = (f"This period starts {days_after} days after the last day the model "
+                    f"was fitted on ({self.last_fitted_day}). The error figures were "
+                    f"measured on forecasts up to 30 days ahead; further out the "
+                    f"uncertainty grows.")
+
+        return {
+            "model": self.meta.get("model"),
+            "notebook": self.meta.get("notebook"),
+            "fitted_on": self.meta.get("fitted_on"),
+            "weather_assumption": self.meta.get("weather_assumption"),
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "days_after_last_data": days_after,
+            "first_day_available": self.first_day.isoformat(),
+            "last_day_available": self.last_day.isoformat(),
+            "typical_daily_error_pct": errors["daily_mape"],
+            "period_total_error_pct": errors["period_total_mean_abs_error_pct"],
+            "total_trips": sum(trips),
+            "mean_trips_per_day": round(sum(trips) / len(trips)),
+            "busiest_day": {"date": busiest["date"], "trips": busiest["predicted_trips"]},
+            "quietest_day": {"date": quietest["date"], "trips": quietest["predicted_trips"]},
+            "note": note,
+            "days": out_days,
+        }
+
+
 class Registry:
     """Loads what it can and stays up when something is missing.
 
@@ -165,6 +278,7 @@ class Registry:
     def __init__(self) -> None:
         self.mushroom: MushroomModel | None = None
         self.citibike: CitibikeModel | None = None
+        self.citibike_period: CitibikePeriod | None = None
         self.errors: dict[str, str] = {}
 
         try:
@@ -179,12 +293,20 @@ class Registry:
             self.errors["citibike"] = str(error)
             log.exception("citibike model failed to load")
 
+        try:
+            self.citibike_period = CitibikePeriod()
+        except Exception as error:  # noqa: BLE001
+            self.errors["citibike_period"] = str(error)
+            log.exception("citibike period forecast failed to load")
+
     def health(self) -> dict:
         names = []
         if self.mushroom:
             names.append(f"mushroom {self.mushroom.meta.get('model', '')}".strip())
         if self.citibike and self.citibike.available:
             names.append(f"citibike {self.citibike.meta.get('model', '')}".strip())
+        if self.citibike_period:
+            names.append(f"citibike_period {self.citibike_period.meta.get('model', '')}".strip())
 
         detail = {
             "mushroom": "ok" if self.mushroom else self.errors.get("mushroom", "not loaded"),
@@ -192,6 +314,10 @@ class Registry:
                 "ok" if self.citibike and self.citibike.available
                 else "monthly level file missing" if self.citibike
                 else self.errors.get("citibike", "not loaded")
+            ),
+            "citibike_period": (
+                "ok" if self.citibike_period
+                else self.errors.get("citibike_period", "not loaded")
             ),
         }
         return {

@@ -42,6 +42,7 @@ folder.
 index.html           structure, import map for Three.js
 styles.css           all styling, both themes
 js/app.js            form, API calls, result cards, mode switch, settings
+js/period.js         Citi Bike "Next 30 days" view: SVG chart, summary, table
 js/stage.js          renderer, camera, switching between the two scenes
 js/mushroom-scene.js the mushroom built from the form
 js/bike-scene.js     the city island and its riders
@@ -134,7 +135,7 @@ Otherwise the API must send `Access-Control-Allow-Origin` for the Vercel domain.
 
 ## API contract
 
-The page expects these three endpoints. Field names match `input_columns` in the
+The page expects these endpoints. Field names match `input_columns` in the
 model JSON files, so the backend can pass them through with no renaming.
 
 `null` means "not observed" everywhere. The backend maps it to the `missing`
@@ -223,8 +224,9 @@ Backend responsibilities, from CLAUDE.md section 6.14:
 
 1. Derive the calendar columns from the date as in `02` section 5: `weekday`
    (0 = Monday), `month`, `day_of_year`, `holiday` (pandas
-   `USFederalHolidayCalendar`), `christmas_week` (24 December to 1 January).
-   Return them, so the page can show what the model actually saw.
+   `USFederalHolidayCalendar`), `christmas_week` (24 December to 1 January,
+   except the federal holidays in it, 25 December and 1 January, exactly as in
+   `02`; until 10 October 2026 the API set it on those two days too). Return them, so the page can show what the model actually saw.
 2. Look up `level_12m` from `Data/citibike_monthly.csv`: trips over months
    m-13 to m-2 divided by the days in those months. `features_for_day` in `03` is
    the reference implementation.
@@ -233,11 +235,64 @@ Backend responsibilities, from CLAUDE.md section 6.14:
    Return `trips`, `level_12m` and `ratio`; the page shows the day against the
    twelve-month baseline and must not do this arithmetic itself.
 
-**Open issue before the backend can run:** `Data/citibike_monthly.csv` is
-git-ignored and is produced by `02_data_preparation.ipynb`. Without it there is no
-`level_12m` and no prediction. It is small, so the simplest fix is to commit it
-next to the model files, or to bake it into the API image. Decide this before
-wiring the backend.
+`Data/citibike_monthly.csv` is git-ignored (it is produced by
+`02_data_preparation.ipynb`), so a committed copy lives in
+`NYCCitiBikeSystemData/models/` and is baked into the API image. After re-running
+`02`, copy the new file there and commit it.
+
+### GET /api/citibike/period?start=YYYY-MM-DD&days=30
+
+Expected trips for every day of a period of up to 30 days, under **normal
+weather**. Nothing is computed with a model here: `05d_model_timeseries.ipynb`
+forecasts every day from 2026-08-31 to 2027-12-31 and writes
+`NYCCitiBikeSystemData/models/citibike_timeseries_forecast.csv` plus
+`citibike_timeseries.json`; the API reads that table at start-up. That keeps
+PyCaret, sktime and LightGBM out of the container.
+
+- `days`: 1 to 30, default 30. Anything else is a 422.
+- `start`: optional. Default is today, moved into the range
+  `[forecast_first_day, forecast_last_day - days + 1]` so a whole period fits. An
+  explicit start outside that range is a 422 whose `detail` names the range.
+
+```json
+{
+  "model": "time series lightgbm_cds_dt (PyCaret)",
+  "notebook": "05d_model_timeseries",
+  "fitted_on": "2014-07-01 to 2026-08-30",
+  "weather_assumption": "normal weather: the mean of the forecasts over the weather of the same calendar day in every complete past year; low/high = 10th/90th percentile",
+  "start": "2026-10-10", "end": "2026-11-08",
+  "days_after_last_data": 41,
+  "first_day_available": "2026-08-31", "last_day_available": "2027-12-31",
+  "typical_daily_error_pct": 20.62,
+  "period_total_error_pct": 9.06,
+  "total_trips": 4537715, "mean_trips_per_day": 151257,
+  "busiest_day": { "date": "2026-10-21", "trips": 183178 },
+  "quietest_day": { "date": "2026-11-08", "trips": 126392 },
+  "note": "This period starts 41 days after the last day the model was fitted on ...",
+  "days": [
+    { "date": "2026-10-10", "weekday": 5, "weekend": true, "holiday": false,
+      "christmas_week": false, "predicted_trips": 150488,
+      "low_trips": 135580, "high_trips": 170750,
+      "tmax_c": 20.3, "tmin_c": 13.0, "precipitation_mm": 3.3, "snow_depth_mm": 0.0,
+      "level_source": "published months" }
+  ]
+}
+```
+
+- `predicted_trips` is the mean of the forecasts over the weather of the same
+  calendar day in eleven past years; `low_trips` / `high_trips` are the 10th and
+  90th percentile over those years. The band shows how much weather alone moves
+  a day. It is **not** a prediction interval, and on a date where one past year
+  had a storm the mean can fall outside it.
+- `typical_daily_error_pct` and `period_total_error_pct` come from
+  `period_error_validation_2024` in the JSON: 30-day forecasts made at the start
+  of every month of 2024, scored against what happened.
+- `days_after_last_data` is `start` minus the last fitted day. Above 30, `note`
+  warns that the error figures were measured on forecasts up to 30 days ahead.
+- The weather columns are the typical weather of that date, for display only.
+- To move the forecast forward after new data: re-run `02`, then `05d`, and
+  commit the two files. The retraining pipeline does not refit this model (CI
+  has neither the data nor PyCaret).
 
 ### GET /api/weather?date=YYYY-MM-DD
 
@@ -259,7 +314,8 @@ the model can be tried on a real day without typing six numbers.
 
 Any non-2xx carries a JSON body with `detail`; the page shows that string.
 
-- **422** - the request did not match the schema (for example a missing date).
+- **422** - the request did not match the schema (for example a missing date),
+  or a period that the forecast table does not cover.
 - **503** - the model or an artefact it needs is not available. The Citi Bike
   endpoint returns this, with an explanation, when `citibike_monthly.csv` is
   missing. It never invents a trips number.
@@ -272,8 +328,10 @@ Any non-2xx carries a JSON body with `detail`; the page shows that string.
 `deploy/backend/tests/test_contracts.py` guards the things that are cheap to
 break and expensive to notice: the stem rule in all six of its cases, the
 decision threshold coming from the JSON rather than a hard-coded 0.5, the
-calendar columns, and the promise that an unobserved value stays unobserved
-instead of becoming a zero. They run on every push.
+calendar columns, the promise that an unobserved value stays unobserved
+instead of becoming a zero, and the period endpoint (range limits, consecutive
+days, totals, holiday flags, the error figures from the JSON). They run on every
+push.
 
 ```
 cd deploy/backend && ../../.venv/Scripts/python.exe -m pytest -q

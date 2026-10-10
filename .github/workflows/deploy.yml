@@ -68,6 +68,9 @@ jobs:
           done
           curl -fsS http://localhost:8000/api/health | tee health.json
           python -c "import json;d=json.load(open('health.json'));assert d['models'],'no models served';print('serving:',d['models'])"
+          # The period forecast is a table baked into the image: check it shipped.
+          curl -fsS "http://localhost:8000/api/citibike/period?days=3" | tee period.json
+          python -c "import json;d=json.load(open('period.json'));assert len(d['days'])==3,'period forecast missing';print('period ok:',d['start'],d['end'])"
           docker rm -f ggi
 
   retrain:

@@ -159,16 +159,19 @@ class Calendar:
 def calendar_for(day: dt.date) -> Calendar:
     """Calendar columns from a date (CLAUDE.md 6.14 step 2)."""
     stamp = pd.Timestamp(day)
-    # 24 December to 1 January. Not a federal holiday, but the strongest
-    # calendar effect in the data, so it is its own flag.
-    christmas_week = (stamp.month == 12 and stamp.day >= 24) or (
+    holiday = bool(stamp.normalize() in _federal_holidays())
+    # 24 December to 1 January, the strongest calendar effect in the data, so it
+    # is its own flag. As in 02_data_preparation.ipynb, the federal holidays in
+    # that stretch (25 December, 1 January) are NOT christmas_week days: they are
+    # already covered by `holiday`, and the model was trained that way.
+    late_december = (stamp.month == 12 and stamp.day >= 24) or (
         stamp.month == 1 and stamp.day == 1)
     return Calendar(
         weekday=int(stamp.weekday()),          # 0 = Monday
         month=int(stamp.month),
         day_of_year=int(stamp.dayofyear),
-        holiday=bool(stamp.normalize() in _federal_holidays()),
-        christmas_week=bool(christmas_week),
+        holiday=holiday,
+        christmas_week=bool(late_december and not holiday),
     )
 
 
